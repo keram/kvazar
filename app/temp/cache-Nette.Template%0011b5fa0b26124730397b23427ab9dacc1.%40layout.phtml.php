@@ -1,4 +1,4 @@
-<?php //netteCache[01]000168a:2:{s:4:"time";s:21:"0.13546600 1241139275";s:2:"df";a:1:{s:84:"E:\web-data\projects_svn\public\kvazar\document_root/../app/templates//@layout.phtml";i:1241007476;}}?><?php
+<?php //netteCache[01]000168a:2:{s:4:"time";s:21:"0.65540400 1241178660";s:2:"df";a:1:{s:84:"E:\web-data\projects_svn\public\kvazar\document_root/../app/templates//@layout.phtml";i:1241147541;}}?><?php
 // template E:\web-data\projects_svn\public\kvazar\document_root/../app/templates//@layout.phtml
 ?><?php $_cb = CurlyBracketsFilter::initState($template) ?><?php
 if (SnippetHelper::$outputAllowed) {

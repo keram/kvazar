@@ -1,10 +1,27 @@
-<?php //netteCache[01]000176a:2:{s:4:"time";s:21:"0.15365600 1241139275";s:2:"df";a:1:{s:92:"E:\web-data\projects_svn\public\kvazar\document_root/../app/templates/Homepage/default.phtml";i:1241007476;}}?><?php
+<?php //netteCache[01]000176a:2:{s:4:"time";s:21:"0.53406300 1241181300";s:2:"df";a:1:{s:92:"E:\web-data\projects_svn\public\kvazar\document_root/../app/templates/Homepage/default.phtml";i:1241181298;}}?><?php
 // template E:\web-data\projects_svn\public\kvazar\document_root/../app/templates/Homepage/default.phtml
 ?><?php $_cb = CurlyBracketsFilter::initState($template) ?><?php
 if (SnippetHelper::$outputAllowed) {
 ?>
 <h1><?php echo TemplateHelpers::escapeHtml($title) ?></h1>
 
-<p>Hello World</p><?php
+<h2><a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('User:')) ?>">User:</a></h2>
+<div class="block">
+	<a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('User:login')) ?>">Login</a>
+	<a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('User:registration')) ?>">Registration</a>
+</div>
+
+<h2><a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('Quiz:')) ?>">Quiz:</a></h2>
+<div class="block">
+	<a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('Quiz:list')) ?>">List</a>
+	<a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('Quiz:ranks')) ?>">Ranks</a>
+	<a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('Quiz:new')) ?>">New</a>
+</div>
+<h2><a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('Question:')) ?>">Question:</a></h2>
+<div class="block">
+	<a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('Question:list')) ?>">List</a>
+	<a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('Question:new')) ?>">New</a>
+</div>
+<?php
 }
 ?>

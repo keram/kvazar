@@ -7,6 +7,26 @@ SHOW WARNINGS;
 USE `kvazar`;
 
 -- -----------------------------------------------------
+-- Table `kvazar`.`user`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `kvazar`.`user` ;
+
+SHOW WARNINGS;
+CREATE  TABLE IF NOT EXISTS `kvazar`.`user` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
+  `nick` VARCHAR(45) NULL ,
+  `email` VARCHAR(64) NOT NULL UNIQUE,
+  `password` VARCHAR(64) NOT NULL ,
+  `datetime_register` DATETIME NOT NULL ,
+  `datetime_lastlogin` DATETIME NULL ,
+  PRIMARY KEY (`id`) )
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8
+COLLATE = utf8_general_ci;
+
+SHOW WARNINGS;
+
+-- -----------------------------------------------------
 -- Table `kvazar`.`quiz`
 -- -----------------------------------------------------
 DROP TABLE IF EXISTS `kvazar`.`quiz` ;
@@ -21,27 +41,14 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`quiz` (
   `datetime_create` DATETIME NOT NULL ,
   `datetime_start` DATETIME NULL ,
   `datetime_end` DATETIME NULL ,
-  PRIMARY KEY (`id`, `key`) )
-ENGINE = InnoDB
-DEFAULT CHARACTER SET = utf8
-COLLATE = utf8_general_ci;
-
-SHOW WARNINGS;
-
--- -----------------------------------------------------
--- Table `kvazar`.`user`
--- -----------------------------------------------------
-DROP TABLE IF EXISTS `kvazar`.`user` ;
-
-SHOW WARNINGS;
-CREATE  TABLE IF NOT EXISTS `kvazar`.`user` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
-  `nick` VARCHAR(45) NULL ,
-  `email` VARCHAR(64) NOT NULL ,
-  `password` VARCHAR(64) NOT NULL ,
-  `datetime_register` DATETIME NOT NULL ,
-  `datetime_lastlogin` DATETIME NOT NULL ,
-  PRIMARY KEY (`id`) )
+  `admin` INT UNSIGNED NOT NULL ,
+  PRIMARY KEY (`id`, `key`, `admin`) ,
+  INDEX `fk_quiz_user` (`admin` ASC) ,
+  CONSTRAINT `fk_quiz_user`
+    FOREIGN KEY (`admin` )
+    REFERENCES `kvazar`.`user` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8
 COLLATE = utf8_general_ci;
@@ -103,7 +110,7 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`quiz_has_question` (
   `quiz_id` INT UNSIGNED NOT NULL ,
   `question_id` INT UNSIGNED NOT NULL ,
   `open` TINYINT(1) NOT NULL DEFAULT 1 ,
-  `datetime_start` DATETIME NOT NULL ,
+  `datetime_start` DATETIME NULL ,
   `time` SMALLINT UNSIGNED NOT NULL DEFAULT 30 ,
   PRIMARY KEY (`quiz_id`, `question_id`) ,
   INDEX `fk_quiz_has_question_quiz` (`quiz_id` ASC) ,
