@@ -15,11 +15,12 @@ SHOW WARNINGS;
 CREATE  TABLE IF NOT EXISTS `kvazar`.`user` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `nick` VARCHAR(45) NULL ,
-  `email` VARCHAR(64) NOT NULL UNIQUE,
+  `email` VARCHAR(64) NOT NULL ,
   `password` VARCHAR(64) NOT NULL ,
   `datetime_register` DATETIME NOT NULL ,
   `datetime_lastlogin` DATETIME NULL ,
-  PRIMARY KEY (`id`) )
+  PRIMARY KEY (`id`, `email`) ,
+  UNIQUE INDEX `index2` (`email` ASC) )
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8
 COLLATE = utf8_general_ci;
@@ -63,13 +64,11 @@ DROP TABLE IF EXISTS `kvazar`.`question` ;
 SHOW WARNINGS;
 CREATE  TABLE IF NOT EXISTS `kvazar`.`question` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
-  `scope` VARCHAR(45) NOT NULL DEFAULT 'elementary' ,
-  `type` ENUM('simple', 'multi') NOT NULL DEFAULT 'simple' ,
   `title_en` TEXT NULL ,
   `title_sk` TEXT NULL ,
   `datetime_create` DATETIME NOT NULL ,
   `datetime_approved` DATETIME NULL ,
-  `state` ENUM('created', 'approved') NULL DEFAULT 'approved' ,
+  `state` ENUM('unapproved', 'approved', 'blocked') NULL DEFAULT 'unapproved' ,
   PRIMARY KEY (`id`) )
 ENGINE = InnoDB;
 
@@ -84,8 +83,7 @@ SHOW WARNINGS;
 CREATE  TABLE IF NOT EXISTS `kvazar`.`answer` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `correct` TINYINT(1) NOT NULL DEFAULT 1 ,
-  `value_sk` VARCHAR(128) NULL ,
-  `value_en` VARCHAR(128) NULL ,
+  `value` VARCHAR(128) NOT NULL ,
   `question_id` INT UNSIGNED NOT NULL ,
   PRIMARY KEY (`id`, `question_id`) ,
   INDEX `fk_answer_question` (`question_id` ASC) ,
