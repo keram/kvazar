@@ -21,7 +21,7 @@ class HomepagePresenter extends BasePresenter
 
 	public function renderDefault()
 	{
-		$this->template->title = SITE_TITLE;
+		$this->template->title = title;
 	}
 
 }

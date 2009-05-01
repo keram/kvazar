@@ -28,15 +28,12 @@ Environment::loadConfig();
 
 require_once LIBS_DIR . '/dibi/dibi.php';
 dibi::connect(Environment::getConfig('database'));
-Debug::dump(Environment::getConfig('database'));
 
-$define = ConfigAdapterIni::load(dirname(__FILE__) . '\config.ini','define');
-
-foreach($define as $key=>$val)
+$site = Environment::getConfig('site');
+foreach($site as $key=>$val)
 {
 	define($key, $val);
 }
-
 
 // 2c) check if directory /app/temp is writable
 if (@file_put_contents(Environment::expand('%tempDir%/_check'), '') === FALSE) {
