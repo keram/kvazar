@@ -17,17 +17,17 @@ class QuestionPresenter extends BasePresenter
 		$form = new AppForm($this, 'newform');
 		$form->addText('title_sk', 'Title (sk):');
 		$form->addText('title_en', 'Title (en):');
-		$form->addText('answer_1', 'Answer:')
+		$form->addText('answer_1', 'Answer (correct):')
 			->addRule(Form::FILLED, 'Please provide correct answer.');
 		// $form['correct_1']->checked = true;
 		// $form['correct_1']->disabled = true;
-		$form->addText('answer_2', 'Answer:');
+		$form->addText('answer_2', 'Answer 2:');
 		$form->addCheckbox('correct_2', 'Correct');
-		$form->addText('answer_3', 'Answer:');
+		$form->addText('answer_3', 'Answer 3:');
 		$form->addCheckbox('correct_3', 'Correct');
-		$form->addText('answer_4', 'Answer:');
+		$form->addText('answer_4', 'Answer 4:');
 		$form->addCheckbox('correct_4', 'Correct');
-		$form->addText('answer_5', 'Answer:');
+		$form->addText('answer_5', 'Answer 5:');
 		$form->addCheckbox('correct_5', 'Correct');
 
 		$form->addSubmit('create', 'Create');
@@ -39,17 +39,19 @@ class QuestionPresenter extends BasePresenter
 
 		$form->onSubmit[] = array($this, 'newQuestionFormSubmitted');
 		$this->template->new_form = $form;
+		
+		$db  = dibi::getConnection();
+		$src = $db->dataSource('SELECT t1.id, concat(t1.title_sk, " / ", t1.title_en) AS `question`, COUNT(t2.id) AS `answers` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id GROUP BY t1.id');
+		// $src = $db->dataSource('SELECT t1.*, COUNT(t2.id) AS `answers` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id GROUP BY t1.id');
+		$dataGrid = new DataGrid;
+		$dataGrid->bindDataTable($src);
+		$this->addComponent($dataGrid, 'dg');
+		$this->template->dataGrid = $dataGrid;
 	}
 	
-//   `title_en` TEXT NULL ,
-//   `title_sk` TEXT NULL ,
-//   `datetime_create` DATETIME NOT NULL ,
-//   `datetime_approved` DATETIME NULL ,
-//   `state` ENUM('created', 'approved') NULL DEFAULT 'approved' ,
-
 	public function newQuestionFormSubmitted ($form)
 	{
-		// todo pridaj salt, a validation
+		// TODO administracia
 		try {
 			
 			if ( trim($form['title_sk']->getValue()) == "" && trim($form['title_en']->getValue()) == "" )
@@ -63,68 +65,65 @@ class QuestionPresenter extends BasePresenter
 			}
 			
 			
-//			dibi::begin('question');
+			$b = dibi::begin();
 			$_q_data = array( 
 				'title_sk' => addslashes(trim($form['title_sk']->getValue())), 
 				'title_en' => addslashes(trim($form['title_en']->getValue())), 
 				'state'    => 'approved',
-				'datetime_create' => new DibiVariable('NOW()', 'sql')
+				'datetime_create' => new DibiVariable('NOW()', 'sql'),
+				'datetime_approved' => new DibiVariable('NOW()', 'sql')
 			);
 
 			$_q = new Questions();
 			$_a = new Answers();
+			$trans_state = true;
 			$_q_id = $_q->insert($_q_data);
 			
-			$_a_data[] = array( 
-				'value'		 => addslashes(trim($form['answer_1']->getValue())), 
-				'correct'    => '1',
-				'question_id' => $_q_id
-			);
-			
-			for ( $i=1; $i < 5; $i++ )
-			{ 
-				if ( trim($form['answer_' . $i]->getValue()) != ""  )
+			if ( $_q_id )
+			{
+				$_a_data[] = array( 
+					'value'		 => addslashes(trim($form['answer_1']->getValue())), 
+					'correct'    => '1',
+					'question_id' => $_q_id
+				);
+	
+				for ( $i=2; $i < 5; $i++ )
+				{ 
+					if ( trim($form['answer_' . $i]->getValue()) != ""  )
+					{
+						$_a_data[] = array( 
+							'value'		 => addslashes(trim($form['answer_' . $i]->getValue())), 
+							'correct'    => $form['correct_' . $i]->getValue(),
+							'question_id' => $_q_id
+						);
+					} 
+					else
+					{
+						break;
+					}
+				}
+	
+				for ( $i=0; $i < count($_a_data); $i++ )
+				{ 
+					if ( !$_a->insert($_a_data[$i]) )
+					{
+						$trans_state = false;
+					}
+					
+				}
+				
+				if ( $trans_state )
 				{
-					$_a_data[] = array( 
-						'value'		 => addslashes(trim($form['answer_' . $i]->getValue())), 
-						'correct'    => $form['correct_' . $i]->getValue(),
-						'question_id' => $_q_id
-					);
-				} 
+					dibi::commit();
+					$this->flashMessage('Your question has been successful added.');
+					$this->redirect('Question:');
+				}
 				else
 				{
-					break;
+					dibi::rollback();
+					$this->flashMessage("Your question hasn't been successful added.");
 				}
 			}
-			
-			for ( $i=0; $i < count($_a_data); $i++ )
-			{ 
-				$_a->insert($_a_data[$i]);
-			}
-			
-			
-			dibi::commit('question');
-			/*
-			CREATE  TABLE IF NOT EXISTS `kvazar`.`answer` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
-  `correct` TINYINT(1) NOT NULL DEFAULT 1 ,
-  `value_sk` VARCHAR(128) NULL ,
-  `value_en` VARCHAR(128) NULL ,
-  `question_id` INT UNSIGNED NOT NULL ,
-  PRIMARY KEY (`id`, `question_id`) ,
-
-			
-			*/
-			// try {
-			// 	$user = Environment::getUser();
-			// 	$user->authenticate("", $pass, array('email' => $email));
-			// 	$this->flashMessage('Your login has been successful.');
-			// 	$this->getApplication()->restoreRequest($this->backlink);
-			// 	$this->redirect('User:');
-			// } catch (AuthenticationException $e) {
-			// 	$form->addError($e->getMessage());
-			// }
-
 		} catch (FormValidationException $e) {
 			$form->addError($e->getMessage());
 		}

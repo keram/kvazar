@@ -30,7 +30,9 @@
 
 <body>
 	{foreach $flashes as $flash}<div class="flash {$flash->type}">{$flash->message}</div>{/foreach}
-
+	
+	<h1><a href="{plink Homepage:}">Homepage</a></h1>
+	
 	{include $content}
 </body>
 </html>
