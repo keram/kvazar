@@ -35,10 +35,7 @@ DROP TABLE IF EXISTS `kvazar`.`quiz` ;
 SHOW WARNINGS;
 CREATE  TABLE IF NOT EXISTS `kvazar`.`quiz` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
-  `title` VARCHAR(45) NOT NULL ,
-  `scope` VARCHAR(45) NOT NULL DEFAULT 'all' ,
-  `privacy` TINYINT(1) NOT NULL DEFAULT 0 ,
-  `key` VARCHAR(16) NOT NULL ,
+  `key` CHAR(16) NOT NULL ,
   `datetime_create` DATETIME NOT NULL ,
   `datetime_start` DATETIME NULL ,
   `datetime_end` DATETIME NULL ,
