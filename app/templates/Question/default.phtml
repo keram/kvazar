@@ -1,22 +1,10 @@
-<h1>{$title}</h1>
 
-<h2><a href="{plink User:}">User:</a></h2>
-<div class="block">
-	<a href="{plink User:login}">Login</a>
-	<a href="{plink User:registration}">Registration</a>
-</div>
-
-<h2><a href="{plink Quiz:}">Quiz:</a></h2>
-<div class="block">
-	<a href="{plink Quiz:list}">List</a>
-	<a href="{plink Quiz:ranks}">Ranks</a>
-	<a href="{plink Quiz:new}">New</a>
-</div>
 <h2><a href="{plink Question:}">Question:</a></h2>
 <div class="block">
-	<a href="{plink Question:list}">List</a>
-	<a href="{plink Question:new}">New</a>
+{!$new_form}
 </div>
 
-
-{!$new_form}
+<div class="block">
+@{? $dataGrid->renderPaginator()}
+@{? $dataGrid->renderGrid()}
+</div>

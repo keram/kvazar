@@ -9,9 +9,6 @@ class UserPresenter extends BasePresenter
 	{
 		$this->title = title . ' / User';
 		$user = Environment::getUser();
-		Debug::dump($user);
-
-
 		parent::startup();
 	}
 

@@ -1,0 +1,26 @@
+{snippet grid}
+
+<table class="grid" border="1">
+<tr>
+	{foreach $columns as $column}
+	<th><a href="{link order $column}"
+	{if $useAjax}onclick="return !nette.action(this)"{/if}
+	{if isset($order[$column])} class="{$order[$column][0] === 'a' ? 'asc' : 'desc'}"{/if}
+	>{$column}{if count($order) > 1 && isset($order[$column])}&nbsp;<span>{$order[$column][1]}</span>{/if}</a></th>
+	{/foreach}
+</tr>
+
+{foreach $rows as $row}
+<tr{!$iterator->isEven() ? ' class="alt"' : ''}>
+
+	{foreach $row as $value}
+	<?php /* <td>{stripslashes($value|truncate:100)}</td> */ ?>
+	<td><?php echo htmlSpecialChars(stripslashes($value)); ?></td>
+	
+	{/foreach}
+
+</tr>
+{/foreach}
+</table>
+
+{/snippet}
