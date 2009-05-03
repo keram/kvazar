@@ -40,6 +40,7 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`quiz` (
   `datetime_start` DATETIME NULL ,
   `datetime_end` DATETIME NULL ,
   `admin` INT UNSIGNED NOT NULL ,
+  `questions` SMALLINT UNSIGNED NOT NULL DEFAULT 20 ,
   PRIMARY KEY (`id`, `key`, `admin`) ,
   INDEX `fk_quiz_user` (`admin` ASC) ,
   CONSTRAINT `fk_quiz_user`
@@ -155,6 +156,27 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`user_answer` (
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8
 COLLATE = utf8_general_ci;
+
+SHOW WARNINGS;
+
+-- -----------------------------------------------------
+-- Table `kvazar`.`logged`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `kvazar`.`logged` ;
+
+SHOW WARNINGS;
+CREATE  TABLE IF NOT EXISTS `kvazar`.`logged` (
+  `user_id` INT UNSIGNED NOT NULL ,
+  `datetime_logged` DATETIME NOT NULL ,
+  `datetime_last_action` DATETIME NOT NULL ,
+  PRIMARY KEY (`user_id`) ,
+  INDEX `fk_logged_user` (`user_id` ASC) ,
+  CONSTRAINT `fk_logged_user`
+    FOREIGN KEY (`user_id` )
+    REFERENCES `kvazar`.`user` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
 
 SHOW WARNINGS;
 

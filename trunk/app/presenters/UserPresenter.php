@@ -39,14 +39,17 @@ class UserPresenter extends BasePresenter
 
 	public function actionLogout ()
 	{
-		$user = Environment::getUser();
-		$user->signOut();
-		$this->flashMessage('Your logout has been successful.');
-		$this->getApplication()->restoreRequest($this->backlink);
-		$this->redirect('User:');
+		if ( $this->user->isAuthenticated() )
+		{
+			dibi::query('DELETE  FROM logged WHERE `user_id` = %i', $this->user->getIDentity()->id);
+			$this->flashMessage('Your logout has been successful.');
+			$this->user->signOut();
+		}
+
+		$this->redirect('Homepage:');
 	}
 	
-	public function actionLogin ()
+	public function actionLogin ($backlink)
 	{
 		$this->title .= ' / Login';
 
@@ -73,14 +76,21 @@ class UserPresenter extends BasePresenter
 			$pass 	= sha1($form['password']->getValue());
 
 			try {
-				$user = Environment::getUser();
-				$user->authenticate("", $pass, array('email' => $email));
-				$this->flashMessage('Your login has been successful.');
-				$this->getApplication()->restoreRequest($this->backlink);
-				$this->redirect('User:');
+				$this->user->authenticate("", $pass, array('email' => $email));
+				if ( $this->user->isAuthenticated() )
+				{
+					dibi::query('DELETE FROM logged WHERE `user_id` = %i', $this->user->getIdentity()->id);
+					dibi::query('INSERT INTO logged (`user_id`, `datetime_logged`, `datetime_last_action`) VALUES
+								(%i, NOW(), NOW() )', $this->user->getIdentity()->id);
+	
+					$this->flashMessage('Your login has been successful.');
+					$this->redirect('Quiz:');
+				}
 			} catch (AuthenticationException $e) {
 				$form->addError($e->getMessage());
 			}
+
+			// dibi::query('DELETE FROM logged WHERE `datetime_last_action` < NOW() - INTERVAL 15 MINUTE');
 
 		} catch (FormValidationException $e) {
 			$form->addError($e->getMessage());
@@ -96,9 +106,12 @@ class UserPresenter extends BasePresenter
 			$pass 	= sha1($form['password']->getValue());
 			
 			try	{
-				dibi::begin('registration');
+				dibi::begin();
 				dibi::query('INSERT INTO user (`nick`, `email`, `password`, `datetime_register`) VALUES
 					(%s, %s, %s, NOW() )', $nick, $email, $pass);
+
+				dibi::query('INSERT INTO logged (`user_id`, `datetime_logged`, `datetime_last_action`) VALUES
+							(%i, NOW(), NOW() )', dibi::getInsertId());
 				
 				try {
 					$user = Environment::getUser();
@@ -106,13 +119,13 @@ class UserPresenter extends BasePresenter
 					$this->flashMessage('Your registration has been successful.');
 					$this->getApplication()->restoreRequest($this->backlink);
 					
-					dibi::commit('registration');
-					$this->redirect('User:');
+					dibi::commit();
+					$this->redirect('Quiz:');
 				} catch (AuthenticationException $e) {
 					$form->addError($e->getMessage());
+					dibi::rollback();
 				}
 				
-				dibi::rollback('registration');
 			} catch (DibiDriverException $e) {
 				if ( $e->getCode() == 1062 )
 				{
