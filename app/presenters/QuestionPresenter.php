@@ -7,9 +7,15 @@ class QuestionPresenter extends BasePresenter
 
 	public function startup ()
 	{
-		$this->title = title . ' / Question';
-		$user = Environment::getUser();
 		parent::startup();
+
+		$this->title = title . ' / Question';
+
+		if ( !$this->user->isAuthenticated() ) {
+			$this->flashMessage('Your must been logged.');
+			$this->redirect('User:Login');
+		}
+
 	}
 	
 	public function actionDefault ()

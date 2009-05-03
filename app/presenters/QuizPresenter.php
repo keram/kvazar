@@ -7,131 +7,107 @@ class QuizPresenter extends BasePresenter
 
 	public function startup ()
 	{
-		$this->title = title . ' / Quiz';
-		$user = Environment::getUser();
 		parent::startup();
+
+		$this->title = title . ' / Quiz';
+		
+		if ( !$this->user->isAuthenticated() ) {
+			$this->flashMessage('Your must been logged.');
+			$this->redirect('User:Login', $this->backlink());
+		}
+
+	}
+	
+	public function actionStart ($id)
+	{
+		if ( $id )
+		{
+			if ( $this->user->getIdentity()->id == 5 )
+			{
+				dibi::query('UPDATE `quiz` SET `datetime_start` = NOW() WHERE `id`=%i', $id);
+				$this->flashMessage('Quiz started.');
+				$this->redirect('Quiz:');
+			}
+			else
+			{
+				$this->flashMessage('Your don\'t  have permission for this action.');
+			}
+		}
+		else
+		{
+			$this->flashMessage('Missing id.');
+		}
 	}
 
 	public function actionDefault ()
 	{
-		$form = new AppForm($this, 'newform');
-		$form->addText('title_sk', 'Title (sk):');
-		$form->addText('title_en', 'Title (en):');
-		$form->addText('answer_1', 'Answer (correct):')
-			->addRule(Form::FILLED, 'Please provide correct answer.');
-		// $form['correct_1']->checked = true;
-		// $form['correct_1']->disabled = true;
-		$form->addText('answer_2', 'Answer 2:');
-		$form->addCheckbox('correct_2', 'Correct');
-		$form->addText('answer_3', 'Answer 3:');
-		$form->addCheckbox('correct_3', 'Correct');
-		$form->addText('answer_4', 'Answer 4:');
-		$form->addCheckbox('correct_4', 'Correct');
-		$form->addText('answer_5', 'Answer 5:');
-		$form->addCheckbox('correct_5', 'Correct');
+		$data = dibi::query('SELECT * FROM quiz ORDER BY id LIMIT 1')->fetchAll();
+		$quiz = $data[0];
+		// TODO pridat ACL
+		if ( $quiz->datetime_end )
+		{
+			if ( $this->user->getIdentity()->id == 5 ) {
+				$form = new AppForm($this, 'new');
+				$form->addText('questions', 'Questions:');
+				$form->addSubmit('create', 'Create');
+	
+				$form->setDefaults(array(
+				//	'datetime_start' => date("d. m. Y 20:00", strtotime("now")),
+					'questions' => 20
+				));
+	
+				$form->onSubmit[] = array($this, 'newQuizFormSubmitted');
+				$this->template->new_form = $form;
+			}
+		}
+		else if ( $quiz->datetime_start  )
+		{
+			$this->template->quiz = $quiz;
+			# code...
+		}
 
-		$form->addSubmit('create', 'Create');
-
-		$form->setDefaults(array(
-			'type' => 'simple',
-			'correct_1' => '1',
-		));
-
-		$form->onSubmit[] = array($this, 'newQuestionFormSubmitted');
-		$this->template->new_form = $form;
-
-		$db  = dibi::getConnection();
-		$src = $db->dataSource('SELECT t1.id, concat(t1.title_sk, " / ", t1.title_en) AS `question`, COUNT(t2.id) AS `answers` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id GROUP BY t1.id');
-		// $src = $db->dataSource('SELECT t1.*, COUNT(t2.id) AS `answers` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id GROUP BY t1.id');
-		$dataGrid = new DataGrid;
-		$dataGrid->bindDataTable($src);
-		$this->addComponent($dataGrid, 'dg');
-		$this->template->dataGrid = $dataGrid;
 	}
-
-	public function newQuestionFormSubmitted ($form)
+	
+	public function newQuizFormSubmitted ($form)
 	{
 		// TODO administracia
 		try {
-
-			if ( trim($form['title_sk']->getValue()) == "" && trim($form['title_en']->getValue()) == "" )
+			if ( $form['questions']->getValue() * 1 == 0 )
 			{
-				 throw new EmptyTitleException();
+				 throw new NullQuestionsException();
 			}
-
-			if ( trim($form['answer_1']->getValue()) == "" )
-			{
-				 throw new EmptyCorrectAnswerException();
-			}
-
-
-			$b = dibi::begin();
+			
+			$questions = $form['questions']->getValue() * 1;
+			
+			
 			$_q_data = array( 
-				'title_sk' => addslashes(trim($form['title_sk']->getValue())), 
-				'title_en' => addslashes(trim($form['title_en']->getValue())), 
-				'state'    => 'approved',
+				'key' 	=> substr(md5(strtotime("now")), 16), 
+				'admin' => $this->user->getIdentity()->id, 
 				'datetime_create' => new DibiVariable('NOW()', 'sql'),
-				'datetime_approved' => new DibiVariable('NOW()', 'sql')
+				'questions' =>  $form['questions']->getValue() * 1
 			);
+			
+			$_q = new Quizs();
+			$_q->insert($_q_data);
+			$this->redirect('Quiz:');
+			// TODO generovat otazky do kvizu dopredu
+			// $db  = dibi::getConnection();
+			// $src = $db->dataSource(sprintf('SELECT t1.id, concat(t1.title_sk, " / ", t1.title_en) AS `question`, COUNT(t2.id) AS `answers` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE t3.open = 0 ) GROUP BY t1.id ORDER BY RAND() LIMIT %d', $questions));
+			// $src = $db->dataSource('SELECT t1.*, t2.correct, t2.value, t2.id AS `answer_id` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.state = "approved" AND t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE t3.open = 0 ) GROUP BY t1.id ORDER BY RAND() LIMIT 1');
+			// Debug::dump($src->fetchAll());
+		
 
-			$_q = new Questions();
-			$_a = new Answers();
-			$trans_state = true;
-			$_q_id = $_q->insert($_q_data);
-
-			if ( $_q_id )
-			{
-				$_a_data[] = array( 
-					'value'		 => addslashes(trim($form['answer_1']->getValue())), 
-					'correct'    => '1',
-					'question_id' => $_q_id
-				);
-
-				for ( $i=2; $i < 5; $i++ )
-				{ 
-					if ( trim($form['answer_' . $i]->getValue()) != ""  )
-					{
-						$_a_data[] = array( 
-							'value'		 => addslashes(trim($form['answer_' . $i]->getValue())), 
-							'correct'    => $form['correct_' . $i]->getValue(),
-							'question_id' => $_q_id
-						);
-					} 
-					else
-					{
-						break;
-					}
-				}
-
-				for ( $i=0; $i < count($_a_data); $i++ )
-				{ 
-					if ( !$_a->insert($_a_data[$i]) )
-					{
-						$trans_state = false;
-					}
-
-				}
-
-				if ( $trans_state )
-				{
-					dibi::commit();
-					$this->flashMessage('Your question has been successful added.');
-					$this->redirect('Question:');
-				}
-				else
-				{
-					dibi::rollback();
-					$this->flashMessage("Your question hasn't been successful added.");
-				}
-			}
 		} catch (FormValidationException $e) {
 			$form->addError($e->getMessage());
-		}
+		} catch (NullQuestionsException $e) {
+			$form->addError($e->getMessage());
+		}		
 	}
 
 	public function beforeRender ()
 	{
 		$this->template->title = $this->title;
+		$this->template->user = $this->user;
 	}
 }
 

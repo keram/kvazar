@@ -30,9 +30,26 @@
 
 <body>
 	{foreach $flashes as $flash}<div class="flash {$flash->type}">{$flash->message}</div>{/foreach}
-	
+	{if $presenter->name == "Homepage"}
 	<h1><a href="{plink Homepage:}">Homepage</a></h1>
-	
-	{include $content}
+	{else}
+	<strong><a href="{plink Homepage:}">Homepage</a></strong>
+	{/if}
+	<div id="content">
+
+		{include $content}
+		
+		{if $user->isAuthenticated()}
+		<div id="sidebar" >
+			<div id="user-info">
+				<strong>{$user->getIdentity()->nick}</strong><br />
+				<span>{$user->getIdentity()->email}</span>
+			</div>
+
+			{?$logged_users->render()}
+
+		</div>
+		{/if}
+	</div>
 </body>
 </html>

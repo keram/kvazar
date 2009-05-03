@@ -1,4 +1,4 @@
-<?php //netteCache[01]000168a:2:{s:4:"time";s:21:"0.32041000 1241221947";s:2:"df";a:1:{s:84:"E:\web-data\projects_svn\public\kvazar\document_root/../app/templates//@layout.phtml";i:1241221945;}}?><?php
+<?php //netteCache[01]000168a:2:{s:4:"time";s:21:"0.63207600 1241359468";s:2:"df";a:1:{s:84:"E:\web-data\projects_svn\public\kvazar\document_root/../app/templates//@layout.phtml";i:1241359465;}}?><?php
 // template E:\web-data\projects_svn\public\kvazar\document_root/../app/templates//@layout.phtml
 ?><?php $_cb = CurlyBracketsFilter::initState($template) ?><?php
 if (SnippetHelper::$outputAllowed) {
@@ -23,10 +23,27 @@ if (SnippetHelper::$outputAllowed) {
 <body>
 	<?php foreach ($iterator = $_cb->its[] = new SmartCachingIterator($flashes) as $flash): ?><div class="flash <?php echo TemplateHelpers::escapeHtml($flash->type) ?>"><?php echo TemplateHelpers::escapeHtml($flash->message) ?></div><?php endforeach; array_pop($_cb->its); $iterator = end($_cb->its) ?>
 
-	
+<?php if ($presenter->name == "Homepage"): ?>
 	<h1><a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('Homepage:')) ?>">Homepage</a></h1>
-	
+<?php else: ?>
+	<strong><a href="<?php echo TemplateHelpers::escapeHtml($presenter->link('Homepage:')) ?>">Homepage</a></strong>
+<?php endif ?>
+	<div id="content">
+
 <?php echo $template->subTemplate($content)->__toString(TRUE) ?>
+		
+<?php if ($user->isAuthenticated()): ?>
+		<div id="sidebar" >
+			<div id="user-info">
+				<strong><?php echo TemplateHelpers::escapeHtml($user->getIdentity()->nick) ?></strong><br />
+				<span><?php echo TemplateHelpers::escapeHtml($user->getIdentity()->email) ?></span>
+			</div>
+
+<?php $logged_users->render() ?>
+
+		</div>
+<?php endif ?>
+	</div>
 </body>
 </html>
 <?php

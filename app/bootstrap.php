@@ -68,13 +68,12 @@ $router[] = new Route('index.php', array(
 	'action' => 'default',
 ), Route::ONE_WAY);
 
+
 $router[] = new Route('<presenter>/<action>/<id>', array(
 	'presenter' => 'Homepage',
 	'action' => 'default',
 	'id' => NULL,
 ));
-
-
 
 // Step 5: Run the application!
 $application->run();
