@@ -59,6 +59,22 @@ $application->errorPresenter = 'Error';
 //$application->catchExceptions = TRUE;
 
 
+$acl = new Permission();
+$acl->addRole('guest');
+$acl->addRole('user', 'guest');
+$acl->addRole('admin', 'user');
+
+$acl->addResource('quiz');
+$acl->addResource('question');
+$acl->addResource('homepage');
+$acl->addResource('user');
+
+$acl->allow('guest', 'homepage');
+$acl->allow('guest', 'user');
+$acl->allow('user', 'quiz');
+$acl->allow('admin', 'question');
+
+
 
 // Step 4: Setup application router
 $router = $application->getRouter();
