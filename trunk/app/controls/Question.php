@@ -10,19 +10,24 @@
 	{
 		#	internal variables
 		public $useAjax = true;		
-		public $id, $title, $answers, $answers_count, $scope, $used, $time;
-		public $form, $presenter;
-		private $quiz;
+		public $id, $title, $answers, $answers_count, $scope, $used, $time, $datetime_start, $answer_id;
+		public $form;
+		public $presenter;
 		
 		#	Constructor
-		function __construct ($presenter, $quiz, $src )
+		function __construct ( $presenter, $src )
 		{
 			$this->presenter = $presenter;
 			
 			parent::__construct();
-			$this->quiz = $quiz;
 			$this->bindData($src);
 			$this->createForm();
+			
+			if ( $this->form->isSubmitted() )
+			{
+			 	// $this->validateAnswer();
+			// 	Debug::dump("jurko");
+			}
 		}
 		###	
 		
@@ -31,9 +36,11 @@
 			$tmp = $src->fetchAll();
 			$data = $tmp[0];
 			$this->id = $data->id;
+			$this->answer_id = $data->answer_id;
 			$this->title['sk'] = $data->title_sk;
 			$this->title['en'] = $data->title_en;
-			$this->time = $data->time;
+			$this->time = isset($data->time) ? $data->time : 30;
+			$this->datetime_start = isset($data->datetime_start) ? $data->datetime_start : null;
 			$this->answers_count = $data->answers_count;
 			if ( $this->answers_count > 1 )
 			{
@@ -52,66 +59,121 @@
 			{
 				$this->answers[] = array('id' => $data['answer_id'], 'value' => $data['answer_value'], 'correct' => $data['answer_correct']);
 			}
+			
 		}
 		
 		public function createForm ()
 		{
-			$form = new AppForm($this->quiz, 'question');
+			$form = new AppForm($this->presenter, 'qform');
 			
 			$title = ( $this->title['sk'] && $this->title['en'] ) ? $this->title['sk'] . ' / ' .  $this->title['en'] : ( ( $this->title['sk'] ) ? $this->title['sk'] : $this->title['en']);
 			$group = $form->addGroup($title);
-	
+
+			$user = Environment::getUser();
+			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i', $user->getIdentity()->id, $this->presenter->id, $this->id);
+			// $user_data_src = dibi::test('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i', $user->getIdentity()->id, $this->presenter->id, $this->id);
+			$user_data = $user_data_src->fetch();
+			
 			if ( $this->answers_count > 1 )
 			{
+				$user_answers = explode(';', $user_data['value']);
 				foreach( $this->answers as $answer)
 				{
 					$form->addCheckbox('answer' . $answer['id'], $answer['value']);
 					$group->add($form['answer' . $answer['id']]);
-
-					if ( $answer['correct'] )
+					if ( $user_data_src->count() == 1)
 					{
+						$form['answer' . $answer['id']]->setDisabled();
+						if ( in_array($answer['id'], $user_answers) )
+						{
+							$form['answer' . $answer['id']]->setValue(1);
+						}
 					}
 				}
 			}
 			else
 			{
-				$form->addText('answer' . $answer['id']);
-				$group->add($form['answer' . $answer['id']]);
+				$form->addText('answer' . $this->answer_id, "")->addRule(Form::FILLED, 'Not filled answer.');;
+				$group->add($form['answer' . $this->answer_id]);
+				if ( ( $form->isSubmitted() && $form['answer' . $this->answer_id]->getValue() != "" ) || $user_data_src->count() == 1)
+				{
+					$form['answer' . $this->answer_id]->setDisabled();
+				}
+
 			}
 
-			$form->addSubmit('send', 'Send');
+			$form->addHidden('quid')->setValue($this->id);
+			if ( $user_data_src->count() == 1)
+			{
+				$form->addSubmit('next', 'Wait')->setDisabled();
+			}
+			else
+			{
+				$form->addSubmit('send', 'Send');
+			}
 			$form->onSubmit[] = array($this, 'questionFormSubmitted');
 			$this->form = $form;
 		}
 		
 		public function questionFormSubmitted ($form)
 		{
-			if ( $this->answers_count > 1 )
-			{
-				foreach( $this->answers as $answer)
+			try	{
+				if ( $this->id == $form['quid']->getValue() && strtotime($this->datetime_start) + $this->time >= strtotime("now") )
 				{
-					if ( $answer['correct'] )
-					{
-						// $form['answer' . $answer['id']];
-						// Debug::dump($answer['correct']);
-						// $form['answer' . $answer['id']]->checked = true;
-						
-					}
+					$user = Environment::getUser();
+					$user_answer = false;
 	
-					// $form['answer' . $answer['id']]->setDisabled();
+					if ( $this->answers_count > 1 )
+					{
+						foreach( $this->answers as $answer)
+						{
+							if ( $answer['correct'] )
+							{
+								$form['answer' . $answer['id']];
+								$form->setDefaults(array(
+									'answer' . $answer['id'] => '1',
+								));
+							}
+
+							if ( $form['answer' . $answer['id']]->value || isset($_REQUEST['answer' . $answer['id']]) )
+							{
+								$user_answer .= $answer['id'] . ';';
+							}
+	
+						}
+
+						$user_answer = substr($user_answer, 0, -1);
+					}
+					elseif ( $form['answer' . $this->answer_id]->getValue() != "" )
+					{
+						$user_answer = $form['answer' . $this->answer_id]->getValue();
+					}
+
+					if ( $user_answer )
+					{
+						try	{
+							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`) VALUES ( %i, %i, %i, %s, NOW() )', $user->getIdentity()->id, $this->presenter->id, $this->id, addslashes($user_answer) );
+							$this->presenter->redirect('Quiz:');
+						} catch (DibiDriverException $e) {
+							if ( $e->getCode() == 1062 )
+							{
+								$form->addError("Answer has been submited");
+							}
+							else
+							{
+								$form->addError($e->getMessage());
+							}
+						}
+					}
 
 				}
-				
-				$form->offsetUnset('send');
-				$form->addSubmit('next', 'Wait')->setDisabled();
+				else
+				{
+					$form->addError("Bad question or time is out.");
+				}
+			// TODO vyhod question exception
+			} catch ( QuestionException $e ) {
 			}
-			else
-			{
-				
-				// $group->add($form['answer' . $answer['id']]);
-			}
-			
-			
 		}
 		
 		public function render ()
@@ -128,4 +190,3 @@
 	}
 	###
 
-?>
