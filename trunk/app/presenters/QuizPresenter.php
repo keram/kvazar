@@ -48,8 +48,10 @@ class QuizPresenter extends BasePresenter
 
 		if ( $src->count() )
 		{
-			$quiz = new Quiz();
+			$quiz = new Quiz($this);
 			$quiz->bindDataTable($src);
+			$this->addComponent($quiz, 'quiz');
+			// $this->addComponent($quiz->question, 'question');
 			$this->template->quiz = $quiz;
 		}
 		else
@@ -62,9 +64,8 @@ class QuizPresenter extends BasePresenter
 				$form->onSubmit[] = array($this, 'newQuizFormSubmitted');
 				$this->template->new_form = $form;
 			}
-
-			$this->flashMessage('Quiz not exists or not run.');
 			
+			$this->flashMessage('Quiz not exists or not run.');
 		}
 	}
 	
