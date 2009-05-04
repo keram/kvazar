@@ -60,11 +60,10 @@ class QuizPresenter extends BasePresenter
 								 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
 								 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
 							 WHERE t1.quiz_id = %i AND t1.datetime_start > NOW() - INTERVAL t1.time second GROUP BY t3.question_id', $this->id);
+							 
 			if ( !$src_question->count() )
 			{
 				$src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1');
-
-// 				dibi::test('SELECT t1.id, t1.title_sk, t1.title_en, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE t3.open = 0 ) GROUP BY t1.id ORDER BY id ASC LIMIT 1');
 				if ( $src_question->count() )
 				{
 					$tmp = $src_question->fetchAll();
@@ -72,17 +71,21 @@ class QuizPresenter extends BasePresenter
 					
 					// dibi::test('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() )', $this->id, $qid);
 					// dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() )', $this->id, $qid);
-					dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `time`) VALUES ( %i, %i, NOW(), 3000 )', $this->id, $qid);
+					// dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `time`) VALUES ( %i, %i, NOW(), 10 )', $this->id, $qid);
+				}
+				else
+				{
+					
 				}
 			}
 			if ( $src_question->count() )
 			{
 				$tmp = $src_question->fetchAll();
 				$this->question = new Question($this, $src_question);
+				$this->addComponent($this->question, 'question');
+				$this->template->question = $this->question;
 			}
 			
-			$this->addComponent($this->question, 'question');
-			$this->template->question = $this->question;
 		}
 		else
 		{
