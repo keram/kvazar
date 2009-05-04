@@ -1,61 +1,10 @@
 <h2><a href="{plink Quiz:}">Quiz:</a></h2>
-<?php
 
-	if ( isset($new_form) )
-	{
-	
-?>
+{if isset($new_form)}
+	<div class="block">
+	{$new_form}
+	</div>
+{/if}
 
-<div class="block">
-{!$new_form}
-</div>
+@{?$quiz->render()}
 
-<?php
-	
-	}
-
-?>
-
-<div class="block">
-<?php
-	
-	if ( $quiz->admin == $user->getIdentity()->id )
-	{
-		$admin = true;
-	}
-
-	if ( !$quiz->datetime_end )
-	{
-		if ( $admin  && !$quiz->datetime_start )
-		{
-			echo '<a href="' . $control->link("Quiz:start", $quiz->id ) . '">Start quiz</a>';
-		}
-		else
-		{
-
-?>
-		
-		{snippet question}
-		-t- tu bude prebiaht kviz
-		<?php 
-	
-			if ( isset($quiz->question) )
-			{
-				echo $quiz->question->title;
-			}
-	
-		?>
-	
-		{/snippet}
-
-<?php
-		}
-	}
-	else
-	{
-		echo '<div class="msg info">
-			Not active quiz.
-		</div>';
-	}
-
-?>

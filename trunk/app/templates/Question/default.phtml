@@ -1,3 +1,4 @@
+{if $user->getIdentity()->id == 5}
 
 <h2><a href="{plink Question:}">Question:</a></h2>
 <div class="block">
@@ -5,6 +6,8 @@
 </div>
 
 <div class="block">
-@{? $dataGrid->renderPaginator()}
-@{? $dataGrid->renderGrid()}
+{? $dataGrid->renderPaginator()}
+{? $dataGrid->renderGrid()}
 </div>
+
+{/if}
