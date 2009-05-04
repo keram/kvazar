@@ -26,9 +26,15 @@
 	<link rel="stylesheet" media="screen,projection,tv" href="{$baseUri}css/screen.css" type="text/css" />
 	<link rel="stylesheet" media="print" href="{$baseUri}css/print.css" type="text/css" />
 	<link rel="shortcut icon" href="{$baseUri}favicon.ico" type="image/x-icon" />
+
+	<script type="text/javascript" src="{$baseUri}js/jquery.js"></script>
+	<script type="text/javascript" src="{$baseUri}js/nette.js"></script>
+	<script type="text/javascript" src="{$baseUri}js/functions.js"></script>
+	
 </head>
 
 <body>
+
 	{foreach $flashes as $flash}<div class="flash {$flash->type}">{$flash->message}</div>{/foreach}
 	{if $presenter->name == "Homepage"}
 	<h1><a href="{plink Homepage:}">Homepage</a></h1>

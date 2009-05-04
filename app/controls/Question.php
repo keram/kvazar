@@ -65,13 +65,17 @@
 		public function createForm ()
 		{
 			$form = new AppForm($this->presenter, 'qform');
+			$form->renderer->clientScript = NULL;
+			$elm = $form->getElementPrototype();
+			$elm->attrs['id'] = 'qform';
+			
+			// $name = $form['name']->getControlPrototype();
 			
 			$title = ( $this->title['sk'] && $this->title['en'] ) ? $this->title['sk'] . ' / ' .  $this->title['en'] : ( ( $this->title['sk'] ) ? $this->title['sk'] : $this->title['en']);
 			$group = $form->addGroup($title);
 
 			$user = Environment::getUser();
 			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i', $user->getIdentity()->id, $this->presenter->id, $this->id);
-			// $user_data_src = dibi::test('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i', $user->getIdentity()->id, $this->presenter->id, $this->id);
 			$user_data = $user_data_src->fetch();
 			
 			if ( $this->answers_count > 1 )
@@ -93,11 +97,13 @@
 			}
 			else
 			{
-				$form->addText('answer' . $this->answer_id, "")->addRule(Form::FILLED, 'Not filled answer.');;
+				$form->addText('answer' . $this->answer_id, "User answer")->addRule(Form::FILLED, 'Not filled answer.');
+				$form->addText('correctAnswer', "Correct answer")->setDisabled();
 				$group->add($form['answer' . $this->answer_id]);
-				if ( ( $form->isSubmitted() && $form['answer' . $this->answer_id]->getValue() != "" ) || $user_data_src->count() == 1)
+				if ( $user_data_src->count() == 1)
 				{
 					$form['answer' . $this->answer_id]->setDisabled();
+					$form['answer' . $this->answer_id]->setValue(stripslashes($user_data->value));
 				}
 
 			}
@@ -127,14 +133,6 @@
 					{
 						foreach( $this->answers as $answer)
 						{
-							if ( $answer['correct'] )
-							{
-								$form['answer' . $answer['id']];
-								$form->setDefaults(array(
-									'answer' . $answer['id'] => '1',
-								));
-							}
-
 							if ( $form['answer' . $answer['id']]->value || isset($_REQUEST['answer' . $answer['id']]) )
 							{
 								$user_answer .= $answer['id'] . ';';
