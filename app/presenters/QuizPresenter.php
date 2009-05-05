@@ -54,12 +54,12 @@ class QuizPresenter extends BasePresenter
 			$data = $src->fetchAll();
 			$this->id = $data[0]->id;
 			$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.open, t1.datetime_start, t1.time, t1.quiz_id AS `questions_count`, 
-								t2.id AS `question_id`, t2.title_sk, t2.title_en, 
-								t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
-							 FROM `quiz_has_question` AS t1
-								 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
-								 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
-							 WHERE t1.quiz_id = %i AND t1.datetime_start > NOW() - INTERVAL t1.time second GROUP BY t3.question_id', $this->id);
+					t2.id AS `question_id`, t2.title_sk, t2.title_en, 
+					t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
+				 FROM `quiz_has_question` AS t1
+					 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
+					 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
+				 WHERE t1.quiz_id = %i AND t1.datetime_start > NOW() - INTERVAL t1.time second GROUP BY t3.question_id', $this->id);
 							 
 			if ( !$src_question->count() )
 			{
@@ -100,6 +100,15 @@ class QuizPresenter extends BasePresenter
 
 		// $this->invalidateControl('round');
 		// $this->invalidateControl('qst');
+	}
+	
+	public function actionHint ()
+	{
+		if ( $this->isAjax() )
+		{
+			$ajax_storage = $this->presenter->getAjaxDriver();
+			$ajax_storage->mrkva = "jablkoo";
+		}
 	}
 	
 	public function newQuizFormSubmitted ($form)

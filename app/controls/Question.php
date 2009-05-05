@@ -9,8 +9,9 @@
 	class Question extends Control
 	{
 		#	internal variables
-		public $useAjax = true;		
+		public $useAjax = true;
 		public $id, $title, $answers, $answers_count, $scope, $used, $time, $datetime_start, $answer_id;
+		public $hints;
 		public $form;
 		public $presenter;
 		
@@ -31,11 +32,6 @@
 		}
 		###	
 		
-		public function handleDefault ()
-		{
-			Debug::dump("handluje nieco tato fnc?");
-		}
-		
 		public function bindData ($src)
 		{
 			$tmp = $src->fetchAll();
@@ -47,9 +43,12 @@
 			$this->time = isset($data->time) ? $data->time : 30;
 			$this->datetime_start = isset($data->datetime_start) ? $data->datetime_start : null;
 			$this->answers_count = $data->answers_count;
+			
+			
 			if ( $this->answers_count > 1 )
 			{
 				$q = dibi::query('SELECT * FROM `answer` WHERE `question_id` = %i', $this->id);
+				$this->hints = $this->answers_count - 1;
 
 				if ( $q->count() )
 				{
@@ -62,9 +61,31 @@
 			}
 			else
 			{
-				$this->answers[] = array('id' => $data['answer_id'], 'value' => $data['answer_value'], 'correct' => $data['answer_correct']);
+				$this->answers[] = array('id' => $data['answer_id'], 'value' => stripslashes($data['answer_value']), 'correct' => $data['answer_correct']);
+				
+				if ( strlen($this->answers[0]['value']) < 2 )
+				{
+					$this->hints = 0;
+				} 
+				else
+				{
+					$this->hints = min(strlen($this->answers[0]['value']), 5) - 1;
+				}
 			}
 			
+			if ( $this->presenter->isAjax() )
+			{
+				
+				$ajax_storage = $this->presenter->getAjaxDriver();
+				$ajax_storage->question = array(
+					"id" 	=> $this->id,
+					"time" 	=> $this->time,
+					"hints"	=> $this->hints
+					
+					// "datetime_start" => $this->datetime_start
+				);
+				// Debug::dump($ajax_storage);
+			}
 		}
 		
 
