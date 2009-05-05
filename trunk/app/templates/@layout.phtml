@@ -26,11 +26,11 @@
 	<link rel="stylesheet" media="screen,projection,tv" href="{$baseUri}css/screen.css" type="text/css" />
 	<link rel="stylesheet" media="print" href="{$baseUri}css/print.css" type="text/css" />
 	<link rel="shortcut icon" href="{$baseUri}favicon.ico" type="image/x-icon" />
-
+	{if $user->isAuthenticated()}
 	<script type="text/javascript" src="{$baseUri}js/jquery.js"></script>
 	<script type="text/javascript" src="{$baseUri}js/nette.js"></script>
 	<script type="text/javascript" src="{$baseUri}js/functions.js"></script>
-	
+	{/if}
 </head>
 
 <body>
@@ -43,7 +43,7 @@
 	{/if}
 	<div id="content">
 
-		{include $content}
+		@{include $content}
 		
 		{if $user->isAuthenticated()}
 		<div id="sidebar" >
@@ -51,11 +51,15 @@
 				<strong>{$user->getIdentity()->nick}</strong><br />
 				<span>{$user->getIdentity()->email}</span>
 			</div>
-
-			{?$logged_users->render()}
-
+		{/if}
+		
+		@{$logged_users->render()}
+		
+		{if $user->isAuthenticated()}
 		</div>
 		{/if}
+		
+
 	</div>
 </body>
 </html>

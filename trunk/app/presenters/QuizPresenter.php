@@ -68,21 +68,18 @@ class QuizPresenter extends BasePresenter
 				{
 					$tmp = $src_question->fetchAll();
 					$qid = $tmp[0]->id;
-					
-					// dibi::test('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() )', $this->id, $qid);
-					// dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() )', $this->id, $qid);
-					// dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `time`) VALUES ( %i, %i, NOW(), 10 )', $this->id, $qid);
-				}
-				else
-				{
-					
+					//dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `time`) VALUES ( %i, %i, NOW(), 10 )', $this->id, $qid);
 				}
 			}
 			if ( $src_question->count() )
 			{
 				$tmp = $src_question->fetchAll();
 				$this->question = new Question($this, $src_question);
-				$this->addComponent($this->question, 'question');
+				$this->addComponent($this->question, 'qs');
+				$e  = $this->getComponent('qs');
+
+				$e->invalidateControl('nieco');
+				$e->invalidateControl('qst');
 				$this->template->question = $this->question;
 			}
 			
@@ -100,6 +97,9 @@ class QuizPresenter extends BasePresenter
 			
 			$this->flashMessage('Quiz not exists or not run.');
 		}
+
+		// $this->invalidateControl('round');
+		// $this->invalidateControl('qst');
 	}
 	
 	public function newQuizFormSubmitted ($form)
@@ -140,6 +140,7 @@ class QuizPresenter extends BasePresenter
 
 	public function beforeRender ()
 	{
+		$this->template->testt = strtotime("now");
 		$this->template->title = $this->title;
 		$this->template->user = $this->user;
 	}
