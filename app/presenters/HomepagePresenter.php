@@ -24,4 +24,9 @@ class HomepagePresenter extends BasePresenter
 		$this->template->title = title;
 	}
 
+	public function handleLoggedUsers ()
+	{
+		$this->getComponent('lu')->invalidateControl('logged_users');
+	}
+
 }

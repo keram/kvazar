@@ -1,4 +1,4 @@
-<?php //netteCache[01]000168a:2:{s:4:"time";s:21:"0.53382100 1241469898";s:2:"df";a:1:{s:84:"E:\web-data\projects_svn\public\kvazar\document_root/../app/templates//@layout.phtml";i:1241469896;}}?><?php
+<?php //netteCache[01]000168a:2:{s:4:"time";s:21:"0.18781100 1241489764";s:2:"df";a:1:{s:84:"E:\web-data\projects_svn\public\kvazar\document_root/../app/templates//@layout.phtml";i:1241489759;}}?><?php
 // template E:\web-data\projects_svn\public\kvazar\document_root/../app/templates//@layout.phtml
 ?><?php $_cb = CurlyBracketsFilter::initState($template) ?><?php
 if (SnippetHelper::$outputAllowed) {
@@ -18,11 +18,11 @@ if (SnippetHelper::$outputAllowed) {
 	<link rel="stylesheet" media="screen,projection,tv" href="<?php echo TemplateHelpers::escapeHtml($baseUri) ?>css/screen.css" type="text/css" />
 	<link rel="stylesheet" media="print" href="<?php echo TemplateHelpers::escapeHtml($baseUri) ?>css/print.css" type="text/css" />
 	<link rel="shortcut icon" href="<?php echo TemplateHelpers::escapeHtml($baseUri) ?>favicon.ico" type="image/x-icon" />
-
+<?php if ($user->isAuthenticated()): ?>
 	<script type="text/javascript" src="<?php echo TemplateHelpers::escapeHtml($baseUri) ?>js/jquery.js"></script>
 	<script type="text/javascript" src="<?php echo TemplateHelpers::escapeHtml($baseUri) ?>js/nette.js"></script>
 	<script type="text/javascript" src="<?php echo TemplateHelpers::escapeHtml($baseUri) ?>js/functions.js"></script>
-	
+<?php endif ?>
 </head>
 
 <body>
@@ -36,7 +36,7 @@ if (SnippetHelper::$outputAllowed) {
 <?php endif ?>
 	<div id="content">
 
-<?php echo $template->subTemplate($content)->__toString(TRUE) ?>
+		<?php } ?><?php echo $template->subTemplate($content)->__toString(TRUE) ?><?php if (SnippetHelper::$outputAllowed) { ?>
 		
 <?php if ($user->isAuthenticated()): ?>
 		<div id="sidebar" >
@@ -44,11 +44,15 @@ if (SnippetHelper::$outputAllowed) {
 				<strong><?php echo TemplateHelpers::escapeHtml($user->getIdentity()->nick) ?></strong><br />
 				<span><?php echo TemplateHelpers::escapeHtml($user->getIdentity()->email) ?></span>
 			</div>
-
-<?php $logged_users->render() ?>
-
+<?php endif ?>
+		
+		<?php } ?><?php echo TemplateHelpers::escapeHtml($logged_users->render()) ?><?php if (SnippetHelper::$outputAllowed) { ?>
+		
+<?php if ($user->isAuthenticated()): ?>
 		</div>
 <?php endif ?>
+		
+
 	</div>
 </body>
 </html>

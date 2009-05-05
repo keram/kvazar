@@ -1,7 +1,7 @@
 {snippet logged_users}
+{if $presenter->user->isAuthenticated()}
 
 <div id="logged-users">
-	
 {foreach $rows as $row}
 	<div>
 		<span class="name">{if $row->nick}{$row->nick}{else}{$row->email}{/if}</span>
@@ -10,4 +10,5 @@
 {/foreach}
 </div>
 
+{/if}
 {/snippet}

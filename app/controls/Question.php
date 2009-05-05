@@ -22,14 +22,19 @@
 			parent::__construct();
 			$this->bindData($src);
 			$this->createForm();
-			
 			if ( $this->form->isSubmitted() )
 			{
 			 	// $this->validateAnswer();
 			// 	Debug::dump("jurko");
 			}
+			
 		}
 		###	
+		
+		public function handleDefault ()
+		{
+			Debug::dump("handluje nieco tato fnc?");
+		}
 		
 		public function bindData ($src)
 		{
@@ -62,6 +67,7 @@
 			
 		}
 		
+
 		public function createForm ()
 		{
 			$form = new AppForm($this->presenter, 'qform');
@@ -171,15 +177,17 @@
 				}
 			// TODO vyhod question exception
 			} catch ( QuestionException $e ) {
+				Debug::dump("nieje tu vynimka nahodou?");
 			}
 		}
+		
 		
 		public function render ()
 		{
 			$template = $this->createTemplate();
 			$template->question = $this;
 			$template->form = $this->form;
-			// render
+			// renderf
 			$template->useAjax = $this->useAjax;
 			$template->setFile(dirname(__FILE__) . '/question.phtml');
 			$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');

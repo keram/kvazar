@@ -25,16 +25,20 @@ class LoggedUsers extends Control
 	 */
 	public function render()
 	{
-		$dataSource = $this->dataSource;
-
-		// render
-		$template = $this->createTemplate();
-		$template->rows    = $dataSource->getIterator();
-		$template->columns = $dataSource->getResult()->getColumnNames();
-		$template->useAjax = $this->useAjax;
-		$template->setFile(dirname(__FILE__) . '/LoggedUsers.phtml');
-		$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');
-		$template->render();
+		// todo je to zvrhle 
+		$user = Environment::getUser();
+		if ( $user->isAuthenticated() ) {
+			$dataSource = $this->dataSource;
+			// render
+			$template = $this->createTemplate();
+			$template->rows    = $dataSource->getIterator();
+			$template->columns = $dataSource->getResult()->getColumnNames();
+			$template->useAjax = $this->useAjax;
+	
+			$template->setFile(dirname(__FILE__) . '/LoggedUsers.phtml');
+			$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');
+			$template->render();
+		}
 	}
 
 }
