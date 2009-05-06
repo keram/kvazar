@@ -63,20 +63,21 @@ class QuizPresenter extends BasePresenter
 	{
 		if ( $this->run )
 		{
-			if ( $this->made_questions < $this->questions )
+			if ( $this->made_questions <= $this->questions )
 			{
+				// pridam 1 sekundu aj ako rezervu sem
 				$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.open, t1.datetime_start, t1.time, t1.quiz_id AS `questions_count`, 
 						t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
 						t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
 					 FROM `quiz_has_question` AS t1
 						 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
 						 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
-					 WHERE t1.quiz_id = %i AND t1.datetime_start > NOW() - INTERVAL t1.time second GROUP BY t3.question_id', $this->id);
+					 WHERE t1.quiz_id = %i AND t1.datetime_start > NOW() - INTERVAL (t1.time + 1) second GROUP BY t3.question_id', $this->id);
 	
 				if ( !$src_question->count() )
 				{
 					$src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1');
-				 // $src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id = 20 GROUP BY t1.id LIMIT 1');
+
 					if ( $src_question->count() )
 					{
 						$tmp = $src_question->fetch();
@@ -86,8 +87,6 @@ class QuizPresenter extends BasePresenter
 							dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() )', $this->id, $qid);
 						} catch ( DibiDriverException $e ) {
 							Debug::dump("duplicate");
-							// dibi::query('truncate `user_answer`');
-							// dibi::query('truncate `quiz_has_question`');
 						}
 					}
 				}
@@ -127,6 +126,7 @@ class QuizPresenter extends BasePresenter
 //					dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() )', $this->id, $qid);
 			}
 		}
+		
 		else
 		{
 

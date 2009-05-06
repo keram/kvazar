@@ -94,7 +94,7 @@ class QuestionPresenter extends BasePresenter
 				);
 	
 				for ( $i=2; $i < 5; $i++ )
-				{ 
+				{
 					if ( trim($form['answer_' . $i]->getValue()) != ""  )
 					{
 						$_a_data[] = array( 
@@ -108,9 +108,14 @@ class QuestionPresenter extends BasePresenter
 						break;
 					}
 				}
-	
+				
+				// zameisam poradie aby sa nedala podla id v db urcit spravna odpoved
+				srand((float)microtime() * 1000000);
+				shuffle($_a_data);
+				
 				for ( $i=0; $i < count($_a_data); $i++ )
 				{ 
+
 					if ( !$_a->insert($_a_data[$i]) )
 					{
 						$trans_state = false;
