@@ -11,7 +11,7 @@
 		#	internal variables
 		public $useAjax = true;
 		public $id, $title, $answers, $answers_count, $scope, $used, $time, $datetime_start, $answer_id;
-		public $hints;
+		public $hints, $type;
 		public $form;
 		public $presenter;
 		
@@ -32,24 +32,34 @@
 		}
 		###	
 		
+		public function getType ()
+		{
+			$type = "simple";
+			
+			if ( $this->answers_count > 1 )
+			{
+				$type = "multi";
+			}
+			
+			return $type;
+		}
+		
 		public function bindData ($src)
 		{
 			$tmp = $src->fetchAll();
 			$data = $tmp[0];
 			$this->id = $data->id;
-			$this->answer_id = $data->answer_id;
-			$this->title['sk'] = $data->title_sk;
-			$this->title['en'] = $data->title_en;
-			$this->time = isset($data->time) ? $data->time : 30;
-			$this->datetime_start = isset($data->datetime_start) ? $data->datetime_start : null;
+			$this->answer_id 	= $data->answer_id;
+			$this->title['sk'] 	= $data->title_sk;
+			$this->title['en'] 	= $data->title_en;
+			$this->time 		= $data->response_time;
+			$this->datetime_start = isset($data->datetime_start) ? $data->datetime_start : date("Y-m-d h:m:s", strtotime("now"));
 			$this->answers_count = $data->answers_count;
-			
+			$this->type = $this->getType();
 			
 			if ( $this->answers_count > 1 )
 			{
-				$q = dibi::query('SELECT * FROM `answer` WHERE `question_id` = %i', $this->id);
-				$this->hints = $this->answers_count - 1;
-
+				$q = dibi::query('SELECT * FROM `answer` WHERE `question_id` = %i ORDER BY RAND()', $this->id);
 				if ( $q->count() )
 				{
 					$d = $q->fetchAll();
@@ -62,16 +72,9 @@
 			else
 			{
 				$this->answers[] = array('id' => $data['answer_id'], 'value' => stripslashes($data['answer_value']), 'correct' => $data['answer_correct']);
-				
-				if ( strlen($this->answers[0]['value']) < 2 )
-				{
-					$this->hints = 0;
-				} 
-				else
-				{
-					$this->hints = min(strlen($this->answers[0]['value']), 5) - 1;
-				}
 			}
+			
+			$this->hints = $this->getNumberHints();
 			
 			if ( $this->presenter->isAjax() )
 			{
@@ -80,14 +83,29 @@
 				$ajax_storage->question = array(
 					"id" 	=> $this->id,
 					"time" 	=> $this->time,
-					"hints"	=> $this->hints
-					
-					// "datetime_start" => $this->datetime_start
+					"hints"	=> $this->hints,
+					"type" 	=> $this->type
 				);
-				// Debug::dump($ajax_storage);
 			}
 		}
 		
+		public function getNumberHints ()
+		{
+			$hints = 0;
+			
+			if ( $this->answers_count > 1 )
+			{
+				$hints = $this->answers_count - 2;
+			}
+			else
+			{
+				if ( strlen($this->answers[0]['value']) >= 2 ) {
+					$hints = min(strlen($this->answers[0]['value']), 5) - 1;
+				}
+			}
+			
+			return $hints;
+		}
 
 		public function createForm ()
 		{
@@ -108,9 +126,11 @@
 			if ( $this->answers_count > 1 )
 			{
 				$user_answers = explode(';', $user_data['value']);
+
 				foreach( $this->answers as $answer)
 				{
 					$form->addCheckbox('answer' . $answer['id'], $answer['value']);
+					
 					$group->add($form['answer' . $answer['id']]);
 					if ( $user_data_src->count() == 1)
 					{
@@ -150,8 +170,9 @@
 		
 		public function questionFormSubmitted ($form)
 		{
+		
 			try	{
-				if ( $this->id == $form['quid']->getValue() && strtotime($this->datetime_start) + $this->time >= strtotime("now") )
+				if ( $this->id == $form['quid']->getValue() && strtotime($this->datetime_start) + $this->time * 1000 >= strtotime("now") )
 				{
 					$user = Environment::getUser();
 					$user_answer = false;
@@ -178,7 +199,10 @@
 					{
 						try	{
 							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`) VALUES ( %i, %i, %i, %s, NOW() )', $user->getIdentity()->id, $this->presenter->id, $this->id, addslashes($user_answer) );
+							
 							$this->presenter->redirect('Quiz:');
+							// dibi::query('truncate `user_answer`');
+							// dibi::query('truncate `quiz_has_question`');
 						} catch (DibiDriverException $e) {
 							if ( $e->getCode() == 1062 )
 							{

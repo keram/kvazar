@@ -23,6 +23,9 @@ require LIBS_DIR . '/Nette/loader.php';
 // 2a) enable Nette\Debug for better exception and error visualisation
 Debug::enable();
 
+Debug::enable(Debug::DEVELOPMENT);
+Environment::setMode(Environment::DEVELOPMENT);
+
 // 2b) load configuration from config.ini file
 Environment::loadConfig();
 

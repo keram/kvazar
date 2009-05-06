@@ -67,6 +67,7 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`question` (
   `datetime_create` DATETIME NOT NULL ,
   `datetime_approved` DATETIME NULL ,
   `state` ENUM('unapproved', 'approved', 'blocked') NULL DEFAULT 'unapproved' ,
+  `response_time` SMALLINT NOT NULL DEFAULT 60 COMMENT 'in second' ,
   PRIMARY KEY (`id`) )
 ENGINE = InnoDB;
 
