@@ -9,14 +9,15 @@
 {snippet quiz}
 
 @{if isset($question)}
-<div id="question-container">
+
 	@{$question->render()}
-</div>
 
 @{/if}
 
-<div id="ranks">
-	tu bude aktualny rebricek
-</div>
+@{if isset($chart)}
+
+	@{$chart->render()}
+
+@{/if}
 
 {/snippet}

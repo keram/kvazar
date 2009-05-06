@@ -170,7 +170,8 @@
 		
 		public function questionFormSubmitted ($form)
 		{
-		
+			Debug::dump("begin");
+
 			try	{
 				if ( $this->id == $form['quid']->getValue() && strtotime($this->datetime_start) + $this->time * 1000 >= strtotime("now") )
 				{
@@ -194,13 +195,15 @@
 					{
 						$user_answer = $form['answer' . $this->answer_id]->getValue();
 					}
+					
+					Debug::dump($user_answer);
 
 					if ( $user_answer )
 					{
 						try	{
 							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`) VALUES ( %i, %i, %i, %s, NOW() )', $user->getIdentity()->id, $this->presenter->id, $this->id, addslashes($user_answer) );
-							
-							$this->presenter->redirect('Quiz:');
+							Debug::dump("data");
+							// $this->presenter->redirect('Quiz:');
 							// dibi::query('truncate `user_answer`');
 							// dibi::query('truncate `quiz_has_question`');
 						} catch (DibiDriverException $e) {
