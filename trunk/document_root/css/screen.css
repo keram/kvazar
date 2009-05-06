@@ -23,3 +23,23 @@ div.flash {
 	padding: 1em;
 	margin: 1em 0;
 }
+
+
+.correct { 
+	color: green;
+}
+
+.invalid { 
+	color: silver;
+	font-size: small;
+}
+
+.valid-checked { 
+	font-weight: bold;
+}
+
+.invalid-checked { color: red; }
+
+.correct input, .invalid input { 
+	opacity: 0.2;
+}

@@ -6,9 +6,17 @@
 	</div>
 {/if}
 
+{snippet quiz}
+
+@{if isset($question)}
 <div id="question-container">
 	@{$question->render()}
 </div>
+
+@{/if}
+
 <div id="ranks">
 	tu bude aktualny rebricek
 </div>
+
+{/snippet}
