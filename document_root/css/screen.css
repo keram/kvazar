@@ -31,7 +31,7 @@ div.flash {
 
 .invalid { 
 	color: silver;
-	font-size: small;
+/*	font-size: small; */
 }
 
 .valid-checked { 
