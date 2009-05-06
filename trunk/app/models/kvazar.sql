@@ -106,21 +106,19 @@ SHOW WARNINGS;
 CREATE  TABLE IF NOT EXISTS `kvazar`.`quiz_has_question` (
   `quiz_id` INT UNSIGNED NOT NULL ,
   `question_id` INT UNSIGNED NOT NULL ,
-  `open` TINYINT(1) NOT NULL DEFAULT 1 ,
   `datetime_start` DATETIME NULL ,
-  `time` SMALLINT UNSIGNED NOT NULL DEFAULT 30 ,
   PRIMARY KEY (`quiz_id`, `question_id`) ,
   INDEX `fk_quiz_has_question_quiz` (`quiz_id` ASC) ,
   INDEX `fk_quiz_has_question_question` (`question_id` ASC) ,
   CONSTRAINT `fk_quiz_has_question_quiz`
     FOREIGN KEY (`quiz_id` )
     REFERENCES `kvazar`.`quiz` (`id` )
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_quiz_has_question_question`
     FOREIGN KEY (`question_id` )
     REFERENCES `kvazar`.`question` (`id` )
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8
@@ -152,7 +150,7 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`user_answer` (
   CONSTRAINT `fk_user_has_quiz_has_question_quiz_has_question`
     FOREIGN KEY (`quiz_id` , `question_id` )
     REFERENCES `kvazar`.`quiz_has_question` (`quiz_id` , `question_id` )
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8

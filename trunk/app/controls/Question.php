@@ -10,7 +10,7 @@
 	{
 		#	internal variables
 		public $useAjax = true;
-		public $id, $title, $answers, $answers_count, $scope, $used, $time, $datetime_start, $answer_id;
+		public $id, $title, $answers, $answers_count, $scope, $used, $response_time, $time, $datetime_start, $answer_id;
 		public $hints, $type;
 		public $form;
 		public $presenter;
@@ -52,8 +52,10 @@
 			$this->answer_id 	= $data->answer_id;
 			$this->title['sk'] 	= $data->title_sk;
 			$this->title['en'] 	= $data->title_en;
-			$this->time 		= $data->response_time;
-			$this->datetime_start = isset($data->datetime_start) ? $data->datetime_start : date("Y-m-d h:m:s", strtotime("now"));
+			$this->response_time = $data->response_time;
+			$now = date("Y-m-d H:i:s", time());
+			$this->datetime_start = isset($data->datetime_start) ? $data->datetime_start : $now;
+			$this->time = $this->response_time - ( strtotime($now) - strtotime($this->datetime_start) );
 			$this->answers_count = $data->answers_count;
 			$this->type = $this->getType();
 			
@@ -134,7 +136,7 @@
 					$group->add($form['answer' . $answer['id']]);
 					if ( $user_data_src->count() == 1)
 					{
-						$form['answer' . $answer['id']]->setDisabled();
+						// $form['answer' . $answer['id']]->setDisabled();
 						if ( in_array($answer['id'], $user_answers) )
 						{
 							$form['answer' . $answer['id']]->setValue(1);
@@ -145,11 +147,11 @@
 			else
 			{
 				$form->addText('answer' . $this->answer_id, "User answer")->addRule(Form::FILLED, 'Not filled answer.');
-				$form->addText('correctAnswer', "Correct answer")->setDisabled();
+				// $form->addText('correctAnswer', "Correct answer")->setDisabled();
 				$group->add($form['answer' . $this->answer_id]);
 				if ( $user_data_src->count() == 1)
 				{
-					$form['answer' . $this->answer_id]->setDisabled();
+					// $form['answer' . $this->answer_id]->setDisabled();
 					$form['answer' . $this->answer_id]->setValue(stripslashes($user_data->value));
 				}
 
@@ -158,7 +160,8 @@
 			$form->addHidden('quid')->setValue($this->id);
 			if ( $user_data_src->count() == 1)
 			{
-				$form->addSubmit('next', 'Wait')->setDisabled();
+				// $form->addSubmit('next', 'Wait')->setDisabled();
+				$form->addSubmit('next', 'Wait');
 			}
 			else
 			{
@@ -170,8 +173,6 @@
 		
 		public function questionFormSubmitted ($form)
 		{
-			Debug::dump("begin");
-
 			try	{
 				if ( $this->id == $form['quid']->getValue() && strtotime($this->datetime_start) + $this->time * 1000 >= strtotime("now") )
 				{
@@ -196,13 +197,20 @@
 						$user_answer = $form['answer' . $this->answer_id]->getValue();
 					}
 					
-					Debug::dump($user_answer);
-
+						Debug::dump("a");
 					if ( $user_answer )
 					{
 						try	{
 							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`) VALUES ( %i, %i, %i, %s, NOW() )', $user->getIdentity()->id, $this->presenter->id, $this->id, addslashes($user_answer) );
-							Debug::dump("data");
+
+							$form->offsetUnset('send');
+
+							foreach( $form->getControls() as $elm )
+							{
+								$elm->setDisabled();
+							}
+							$form->addSubmit('next', 'Wait')->setDisabled();
+							
 							// $this->presenter->redirect('Quiz:');
 							// dibi::query('truncate `user_answer`');
 							// dibi::query('truncate `quiz_has_question`');
@@ -223,6 +231,7 @@
 				{
 					$form->addError("Bad question or time is out.");
 				}
+
 			// TODO vyhod question exception
 			} catch ( QuestionException $e ) {
 				Debug::dump("nieje tu vynimka nahodou?");
