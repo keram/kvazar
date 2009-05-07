@@ -101,9 +101,7 @@
 			}
 			else
 			{
-				if ( strlen($this->answers[0]['value']) >= 2 ) {
-					$hints = min(strlen($this->answers[0]['value']), 5) - 1;
-				}
+				$hints = ( strlen($this->answers[0]['value']) >= 2 ) ? min(strlen($this->answers[0]['value']), 4) - 1 : 0;
 			}
 			
 			return $hints;
@@ -132,7 +130,7 @@
 
 				foreach( $this->answers as $answer)
 				{
-					$form->addCheckbox('answer' . $answer['id'], $answer['value'])->getControlPrototype()->value('1');
+					$form->addCheckbox('answer' . $answer['id'], $answer['value'])->getControlPrototype()->value($answer['id']);
 					
 					$group->add($form['answer' . $answer['id']]);
 					if ( $user_data_src->count() == 1)
@@ -147,9 +145,9 @@
 			}
 			else
 			{
-				$form->addText('answer' . $this->answer_id, "User answer")->addRule(Form::FILLED, 'Not filled answer.');
-				// $form->addText('correctAnswer', "Correct answer")->setDisabled();
-				$group->add($form['answer' . $this->answer_id]);
+				$form->addText('useranswer', "User answer")->addRule(Form::FILLED, 'Not filled answer.');
+				$form->addText('answer', "");
+				$group->add($form['useranswer']);
 				if ( $user_data_src->count() == 1)
 				{
 					$form['answer' . $this->answer_id]->setDisabled();
