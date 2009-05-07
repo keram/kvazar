@@ -6,18 +6,39 @@
 	</div>
 {/if}
 
+@{if isset($quiz)}
+	{snippet quiz}
 
-@{if isset($question)}
+		{if $quiz['run'] == 0}
+			<div id="quiz-countdown">
+				Quiz start <strong>{$quiz['datetime_start']|date:'%H:%M:%S - %d.%m.%Y'}</strong>
+			</div>
+		{/if}
 
-	@{$question->render()}
+		@{if isset($question)}
+	
+			@{$question->render()}
+	
+		@{/if}
+	
+		@{if isset($chart)}
+	
+			@{$chart->render()}
+	
+		@{/if}
 
+	{/snippet}
 @{/if}
 
-@{if isset($chart)}
+<script type="text/javascript">
+//<![CDATA[
 
-	@{$chart->render()}
+	var quiz_config = {
+		"form" : "qform",
+		"url" : {plink Quiz:},
+		"hint_url" : {plink Quiz:hint},
+		"answer_url" : {plink Quiz:answer}
+	 };
 
-@{/if}
-{snippet quiz}
-update snippet
-{/snippet}
+//]]>
+</script>

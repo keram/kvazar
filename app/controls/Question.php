@@ -111,7 +111,8 @@
 
 		public function createForm ()
 		{
-			$form = new AppForm($this->presenter, 'qform');
+			$form = $this->presenter->getComponent('qform');
+			// $form = new AppForm($this->presenter, 'qform');
 			$form->renderer->clientScript = NULL;
 			$elm = $form->getElementPrototype();
 			$elm->attrs['id'] = 'qform';
@@ -131,12 +132,12 @@
 
 				foreach( $this->answers as $answer)
 				{
-					$form->addCheckbox('answer' . $answer['id'], $answer['value']);
+					$form->addCheckbox('answer' . $answer['id'], $answer['value'])->getControlPrototype()->value($answer['id']);
 					
 					$group->add($form['answer' . $answer['id']]);
 					if ( $user_data_src->count() == 1)
 					{
-						// $form['answer' . $answer['id']]->setDisabled();
+						$form['answer' . $answer['id']]->setDisabled();
 						if ( in_array($answer['id'], $user_answers) )
 						{
 							$form['answer' . $answer['id']]->setValue(1);
@@ -151,17 +152,15 @@
 				$group->add($form['answer' . $this->answer_id]);
 				if ( $user_data_src->count() == 1)
 				{
-					// $form['answer' . $this->answer_id]->setDisabled();
+					$form['answer' . $this->answer_id]->setDisabled();
 					$form['answer' . $this->answer_id]->setValue(stripslashes($user_data->value));
 				}
-
 			}
 
 			$form->addHidden('quid')->setValue($this->id);
-			if ( $user_data_src->count() == 1)
+			if ( $user_data_src->count() > 0)
 			{
-				// $form->addSubmit('next', 'Wait')->setDisabled();
-				$form->addSubmit('next', 'Wait');
+				$form->addSubmit('next', 'Wait')->setDisabled();
 			}
 			else
 			{
@@ -174,7 +173,7 @@
 		public function questionFormSubmitted ($form)
 		{
 			try	{
-				if ( $this->id == $form['quid']->getValue() && strtotime($this->datetime_start) + $this->time * 1000 >= strtotime("now") )
+				if ( $this->id == $form['quid']->getValue() && strtotime($this->datetime_start) + $this->time >= strtotime("now") )
 				{
 					$user = Environment::getUser();
 					$user_answer = false;
@@ -197,7 +196,6 @@
 						$user_answer = $form['answer' . $this->answer_id]->getValue();
 					}
 					
-						Debug::dump("a");
 					if ( $user_answer )
 					{
 						try	{
@@ -209,11 +207,9 @@
 							{
 								$elm->setDisabled();
 							}
+							
 							$form->addSubmit('next', 'Wait')->setDisabled();
 							
-							// $this->presenter->redirect('Quiz:');
-							// dibi::query('truncate `user_answer`');
-							// dibi::query('truncate `quiz_has_question`');
 						} catch (DibiDriverException $e) {
 							if ( $e->getCode() == 1062 )
 							{
@@ -226,6 +222,8 @@
 						}
 					}
 
+					$this->presenter->redirect('Quiz:');
+
 				}
 				else
 				{
@@ -236,6 +234,7 @@
 			} catch ( QuestionException $e ) {
 				Debug::dump("nieje tu vynimka nahodou?");
 			}
+			
 		}
 		
 		
