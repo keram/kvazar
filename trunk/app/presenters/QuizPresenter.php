@@ -37,7 +37,6 @@ class QuizPresenter extends BasePresenter
 			$db  = dibi::getConnection();
 			$src = $db->dataSource('SELECT t1.*, COUNT(t2.quiz_id) AS `made_questions` FROM quiz AS t1 LEFT JOIN `quiz_has_question` AS t2 ON t1.id = t2.quiz_id WHERE t1.datetime_start IS NOT NULL AND t1.datetime_end IS NULL GROUP BY t1.id LIMIT 1');
 			
-			
 			if ( $src->count() )
 			{
 				$data = $src->fetch();
@@ -92,7 +91,9 @@ class QuizPresenter extends BasePresenter
 				 FROM `quiz_has_question` AS t1
 					 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
 					 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
-				 WHERE t1.quiz_id = %i AND t2.state = "approved" AND t1.datetime_start > NOW() - INTERVAL t2.response_time second GROUP BY t3.question_id', $this->quiz['id']);
+				 WHERE t1.quiz_id = %i AND t2.state = "approved" AND t1.datetime_start > NOW() - INTERVAL t2.response_time + 5 second GROUP BY t3.question_id', $this->quiz['id']);
+				
+				// pripocital som 5 sek ako rezervu na zobrazenie odpovede
 				
 				$question_session = Environment::getSession('question');
 				
@@ -101,8 +102,8 @@ class QuizPresenter extends BasePresenter
 					if ( $this->quiz['made_questions'] < $this->quiz['questions'] )
 					{
 						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
-						$src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id = 17 GROUP BY t1.id');
-	
+						$src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id = 11 GROUP BY t1.id');
+
 						if ( $src_question->count() )
 						{
 							$tmp = $src_question->fetch();
@@ -131,9 +132,9 @@ class QuizPresenter extends BasePresenter
 				
 				if ( $src_question->count() )
 				{
-					// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
 					if ( $this->quiz['made_questions'] == 0 )
 					{
+						// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
 						$this->invalidateControl('quiz');
 					}
 					
