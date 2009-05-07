@@ -33,10 +33,6 @@
 //<![CDATA[
 
 	var quiz_config = {
-		"form" : "qform",
-		"url" : {plink Quiz:},
-		"hint_url" : {plink Quiz:hint},
-		"answer_url" : {plink Quiz:answer},
 	{if isset($question)}
 		"question" : {
 			"id" 	: {$question->id},
@@ -45,7 +41,13 @@
 			"type" 	: {$question->type}
 		},
 	{/if}
-		"time" : {$quiz['time']}
+	{if isset($quiz)}
+		"quiz" : {$quiz},
+	{/if}
+		"form" : "qform",
+		"url" : {plink Quiz:},
+		"hint_url" : {plink Quiz:hint},
+		"answer_url" : {plink Quiz:answer},
 	 };
 //]]>
 </script>
