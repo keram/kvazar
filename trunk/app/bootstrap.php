@@ -15,6 +15,8 @@
 // you don't have to litter your code with 'require' statements
 
 require LIBS_DIR . '/Nette/loader.php';
+
+require LIBS_DIR . '/primary_functions.lib.php';
 //require dirname(__FILE__) . '/../../../Nette/loader.php';
 
 
@@ -93,6 +95,8 @@ $router[] = new Route('<presenter>/<action>/<id>', array(
 	'action' => 'default',
 	'id' => NULL,
 ));
+
+
 
 // Step 5: Run the application!
 $application->run();

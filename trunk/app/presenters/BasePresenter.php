@@ -46,6 +46,7 @@ abstract class BasePresenter extends Presenter
 	protected function createTemplate()
 	{
 		$template = parent::createTemplate();
+
 		$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');
 		return $template;
 	}

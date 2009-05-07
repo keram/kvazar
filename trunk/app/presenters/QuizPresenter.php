@@ -8,6 +8,9 @@ class QuizPresenter extends BasePresenter
 	private $title;
 	public $backlink = '';
 	public $id, $question, $made_questions, $questions;
+	public $quiz;
+	public $test;
+	public $datetime_start, $datetime_end;
 	private $run = 0;
 
 	public function startup ()
@@ -19,32 +22,35 @@ class QuizPresenter extends BasePresenter
 		if ( !$this->user->isAuthenticated() ) {
 			$this->flashMessage('Your must been logged.');
 			$this->redirect('User:Login', $this->backlink());
-			
 		}
 		else
 		{
 			$db  = dibi::getConnection();
 			$src = $db->dataSource('SELECT t1.*, COUNT(t2.quiz_id) AS `made_questions` FROM quiz AS t1 LEFT JOIN `quiz_has_question` AS t2 ON t1.id = t2.quiz_id WHERE t1.datetime_start IS NOT NULL AND t1.datetime_end IS NULL GROUP BY t1.id LIMIT 1');
-	
+			
+			
 			if ( $src->count() )
 			{
 				$data = $src->fetch();
-				$this->id = $data->id;
-				$this->run = 1;
-				$this->made_questions = $data->made_questions;
-				$this->questions = $data->questions;
+				$this->quiz['id'] = $data->id;
+				$this->quiz['run'] = ( strtotime($data->datetime_start)  < time() ) ? 1 : 0;
+				$this->quiz['time'] = abs(strtotime($data->datetime_start) - time());
+				$this->quiz['made_questions'] = $data->made_questions;
+				$this->quiz['questions'] = $data->questions;
+				$this->quiz['datetime_start'] = $data->datetime_start;
+				$this->quiz['datetime_end'] = $data->datetime_end;
 			}
 		}
 
 	}
 	
-	public function actionStart ($id)
+	public function actionStart ($id, $sec = 60)
 	{
 		if ( $id )
 		{
 			if ( $this->user->getIdentity()->id == 5 )
 			{
-				dibi::query('UPDATE `quiz` SET `datetime_start` = NOW() WHERE `id`=%i', $id);
+				dibi::query('UPDATE `quiz` SET `datetime_start` = NOW() + INTERVAL %i SECOND WHERE `id`=%i AND `datetime_start` IS NULL', $sec, $id);
 				$this->flashMessage('Quiz started.');
 				$this->redirect('Quiz:');
 			}
@@ -61,22 +67,31 @@ class QuizPresenter extends BasePresenter
 
 	public function actionDefault ()
 	{
-		if ( $this->run )
+		if ( $this->isAjax() )
 		{
-			// pridam 1 sekundu aj ako rezervu sem
+			$ajax_storage = $this->presenter->getAjaxDriver();
+		}
+
+		if ( $this->quiz ) 
+		{
+			if ( $this->quiz['run'] )
+			{
+				// pridam 1 sekundu aj ako rezervu sem
 				$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
 					t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
 					t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
 				 FROM `quiz_has_question` AS t1
 					 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
 					 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
-				 WHERE t1.quiz_id = %i AND t2.state = "approved" AND t1.datetime_start > NOW() - INTERVAL t2.response_time second GROUP BY t3.question_id', $this->id);
-				
+				 WHERE t1.quiz_id = %i AND t2.state = "approved" AND t1.datetime_start > NOW() - INTERVAL t2.response_time second GROUP BY t3.question_id', $this->quiz['id']);
+	
 				if ( !$src_question->count() )
 				{
-					if ( $this->made_questions < $this->questions )
+					if ( $this->quiz['made_questions'] < $this->quiz['questions'] )
 					{
-						$src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1');
+						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1');
+						$src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
+						// dibi::test('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` != %i ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
 	
 						if ( $src_question->count() )
 						{
@@ -84,14 +99,14 @@ class QuizPresenter extends BasePresenter
 							$qid = $tmp->id;
 	
 							try	{
-								dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() )', $this->id, $qid);
+								dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() )', $this->quiz['id'], $qid);
 							} catch ( DibiDriverException $e ) {
-								Debug::dump("duplicate");
+								$this->flashMessage($e->getMessage);
 							}
 						}
 						else
 						{
-							$str = 'Missing questions. Have left ' . ( $this->questions - $this->made_questions ) . ' from ' . $this->questions . ' questions.';
+							$str = 'Missing questions. Have left ' . ( $this->quiz['questions'] - $this->quiz['made_questions'] ) . ' from ' . $this->quiz['questions'] . ' questions.';
 							$this->flashMessage($str);
 						}
 					}
@@ -99,18 +114,28 @@ class QuizPresenter extends BasePresenter
 					{
 						$this->flashMessage("Quiz end");
 						$this->invalidateControl('quiz');
+						dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
 					}
 				}
-
+	
 				if ( $src_question->count() )
 				{
+					// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
+					if ( $this->quiz['made_questions'] == 0 )
+					{
+						$this->invalidateControl('quiz');
+					}
+					
 					$this->question = new Question($this, $src_question);
 					$this->addComponent($this->question, 'qs');
 					$e  = $this->getComponent('qs');
-	
+
 					if ( !$e->form->isSubmitted() ) {
-						$e->invalidateControl('qst');
-	
+						// nema sa co ked je 0 invalidovat kedze este neexistoval tento snippet
+						if ( $this->quiz['made_questions'] > 0 ) {
+							$e->invalidateControl('qst');
+						}
+
 						$question_session = Environment::getSession('question');
 						$question_session->id = $this->question->id;
 						$question_session->start = strtotime("now");
@@ -119,14 +144,27 @@ class QuizPresenter extends BasePresenter
 						$question_session->type	 = $this->question->type;
 						$question_session->chints = array();
 					}
-	
+
 					$this->template->question = $this->question;
 				}
-		}
-		
-		else
-		{
+			}
+			else // kviz este nezacal preto invalidnem cely quiz snippet
+			{
+				$this->invalidateControl('quiz');
+			}
+			
+			// na zaver naplnim template/ajax storage datami
+			$this->template->quiz = $this->quiz;
 
+			if ( $this->isAjax() )
+			{
+				$ajax_storage->quiz = $this->quiz;
+			}
+		}
+		else 
+		{
+			
+			// kviz nebezi, ak mam na to prava zobrazim formular na vytvorenie kvizu
 			if ( $this->user->getIdentity()->id == 5 ) {
 				$form = new AppForm($this, 'new');
 				$form->addText('questions', 'Questions:');
@@ -135,13 +173,8 @@ class QuizPresenter extends BasePresenter
 				$form->onSubmit[] = array($this, 'newQuizFormSubmitted');
 				$this->template->new_form = $form;
 			}
-			
-			$this->flashMessage('Quiz not exists or not run.');
 		}
 		
-
-		// $this->invalidateControl('round');
-		// $this->invalidateControl('qst');
 	}
 
 	public function actionEnd ($id)
@@ -321,6 +354,9 @@ class QuizPresenter extends BasePresenter
 			
 			$_q = new Quizs();
 			$_q->insert($_q_data);
+			
+			$this->flashMessage('Quiz created.');
+			
 			$this->redirect('Quiz:');
 			// TODO generovat otazky do kvizu dopredu
 			// $db  = dibi::getConnection();
@@ -334,6 +370,22 @@ class QuizPresenter extends BasePresenter
 		} catch (NullQuestionsException $e) {
 			$form->addError($e->getMessage());
 		}		
+	}
+
+	protected function createComponent($name)
+	{
+		switch ($name) {
+			case 'qform':
+				$form = new AppForm($this->presenter, $name);
+				// $this->addComponent($form, $name);
+	
+				return;
+	
+			default:
+				parent::createComponent($name);
+			
+				return;
+		}
 	}
 
 	public function beforeRender ()
