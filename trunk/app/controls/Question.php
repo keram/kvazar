@@ -114,15 +114,13 @@
 			$form->renderer->clientScript = NULL;
 			$elm = $form->getElementPrototype();
 			$elm->attrs['id'] = 'qform';
-			
-			// $name = $form['name']->getControlPrototype();
-			
 			$title = ( $this->title['sk'] && $this->title['en'] ) ? $this->title['sk'] . ' / ' .  $this->title['en'] : ( ( $this->title['sk'] ) ? $this->title['sk'] : $this->title['en']);
 			$group = $form->addGroup($title);
-
+			
 			$user = Environment::getUser();
-			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i', $user->getIdentity()->id, $this->presenter->id, $this->id);
+			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id);
 			$user_data = $user_data_src->fetch();
+
 			
 			if ( $this->answers_count > 1 )
 			{
@@ -148,15 +146,17 @@
 				$form->addText('useranswer', "User answer")->addRule(Form::FILLED, 'Not filled answer.');
 				$form->addText('answer', "");
 				$group->add($form['useranswer']);
+/* // todo neviem k comu je toot
 				if ( $user_data_src->count() == 1)
 				{
 					$form['answer' . $this->answer_id]->setDisabled();
 					$form['answer' . $this->answer_id]->setValue(stripslashes($user_data->value));
 				}
+*/
 			}
 
 			$form->addHidden('quid')->setValue($this->id);
-			if ( $user_data_src->count() > 0)
+			if ( $this->type == "multi" )
 			{
 				$form->addSubmit('next', 'Wait')->setDisabled();
 			}
@@ -164,18 +164,21 @@
 			{
 				$form->addSubmit('send', 'Send');
 			}
+
 			$form->onSubmit[] = array($this, 'questionFormSubmitted');
 			$this->form = $form;
 		}
 		
 		public function questionFormSubmitted ($form)
 		{
+
 			try	{
 				if ( $this->id == $form['quid']->getValue() && strtotime($this->datetime_start) + $this->time >= strtotime("now") )
 				{
 					$user = Environment::getUser();
 					$user_answer = false;
-	
+					$valid = 1;
+
 					if ( $this->answers_count > 1 )
 					{
 						foreach( $this->answers as $answer)
@@ -184,31 +187,40 @@
 							{
 								$user_answer .= $answer['id'] . ';';
 							}
-	
 						}
-
 						$user_answer = substr($user_answer, 0, -1);
+	
+						$question_session = Environment::getSession('question');
+						if ( $question_session->submitted == 1 )
+						{
+							$form->addError("Answer has been submited");
+							$valid = 0;
+						}
 					}
-					elseif ( $form['answer' . $this->answer_id]->getValue() != "" )
+					elseif ( $form['useranswer'] != "" )
 					{
-						$user_answer = $form['answer' . $this->answer_id]->getValue();
+						$user_answer = $form['useranswer']->getValue();
 					}
 					
-					if ( $user_answer )
+					if ( $user_answer && $valid )
 					{
+						
 						try	{
-							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`) VALUES ( %i, %i, %i, %s, NOW() )', $user->getIdentity()->id, $this->presenter->id, $this->id, addslashes($user_answer) );
-
-							$form->offsetUnset('send');
-
-							foreach( $form->getControls() as $elm )
+							
+							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`) VALUES ( %i, %i, %i, %s, NOW() )', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id, addslashes($user_answer) );
+							
+							if ( $this->type == "multi" )
 							{
-								$elm->setDisabled();
+								$form->offsetUnset('send');
+								foreach( $form->getControls() as $elm )
+								{
+									$elm->setDisabled();
+								}
+								$form->addSubmit('next', 'Wait')->setDisabled();
+								$question_session->submitted = 1;
 							}
-							
-							$form->addSubmit('next', 'Wait')->setDisabled();
-							
 						} catch (DibiDriverException $e) {
+
 							if ( $e->getCode() == 1062 )
 							{
 								$form->addError("Answer has been submited");
@@ -217,22 +229,20 @@
 							{
 								$form->addError($e->getMessage());
 							}
-						}
+						} 
+						
 					}
-
+					
 					$this->presenter->redirect('Quiz:');
-
 				}
 				else
 				{
 					$form->addError("Bad question or time is out.");
 				}
-
 			// TODO vyhod question exception
 			} catch ( QuestionException $e ) {
 				Debug::dump("nieje tu vynimka nahodou?");
 			}
-			
 		}
 		
 		

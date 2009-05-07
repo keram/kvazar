@@ -93,14 +93,15 @@ class QuizPresenter extends BasePresenter
 					 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
 					 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
 				 WHERE t1.quiz_id = %i AND t2.state = "approved" AND t1.datetime_start > NOW() - INTERVAL t2.response_time second GROUP BY t3.question_id', $this->quiz['id']);
-	
+				
+				$question_session = Environment::getSession('question');
+				
 				if ( !$src_question->count() )
 				{
 					if ( $this->quiz['made_questions'] < $this->quiz['questions'] )
 					{
-						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1');
-						$src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
-						// dibi::test('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` != %i ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
+						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
+						$src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id = 17 GROUP BY t1.id');
 	
 						if ( $src_question->count() )
 						{
@@ -109,7 +110,8 @@ class QuizPresenter extends BasePresenter
 	
 							try	{
 								dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() )', $this->quiz['id'], $qid);
-							} catch ( DibiDriverException $e ) {
+								$question_session->submitted = 0; // este toto nejak lepsie vymysliet todo
+							} catch ( Exception $e ) {
 								$this->flashMessage($e->getMessage);
 							}
 						}
@@ -126,7 +128,7 @@ class QuizPresenter extends BasePresenter
 						// debug dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
 					}
 				}
-	
+				
 				if ( $src_question->count() )
 				{
 					// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
@@ -145,12 +147,12 @@ class QuizPresenter extends BasePresenter
 							$e->invalidateControl('qst');
 						}
 
-						$question_session = Environment::getSession('question');
 						$question_session->id = $this->question->id;
 						$question_session->start = strtotime("now");
 						$question_session->time	 = $this->question->time;
 						$question_session->hints = $this->question->hints;
 						$question_session->type	 = $this->question->type;
+						
 						$question_session->chints = array();
 						$question_session->cnth = 0;
 
@@ -377,7 +379,6 @@ class QuizPresenter extends BasePresenter
 									}
 								}
 	
-	
 								$question_session->chints = $new_array;
 	
 								$ajax_storage->hint = $hint_str;
@@ -446,7 +447,7 @@ class QuizPresenter extends BasePresenter
 			$form->addError($e->getMessage());
 		} catch (NullQuestionsException $e) {
 			$form->addError($e->getMessage());
-		}		
+		}
 	}
 
 	protected function createComponent($name)
