@@ -3,6 +3,15 @@
 require_once APP_DIR . '/controls/Question.php';
 
 
+// 
+// for ( $i=0; $i < strlen($val); $i++ )
+// { 
+// 	Debug::dump($val[$i]);
+// }
+
+// Debug::dump(strlen($val) . ' : ' . $r);
+
+
 class QuizPresenter extends BasePresenter
 {
 	private $title;
@@ -114,7 +123,7 @@ class QuizPresenter extends BasePresenter
 					{
 						$this->flashMessage("Quiz end");
 						$this->invalidateControl('quiz');
-						dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
+						// debug dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
 					}
 				}
 	
@@ -143,6 +152,8 @@ class QuizPresenter extends BasePresenter
 						$question_session->hints = $this->question->hints;
 						$question_session->type	 = $this->question->type;
 						$question_session->chints = array();
+						$question_session->cnth = 0;
+
 					}
 
 					$this->template->question = $this->question;
@@ -267,9 +278,9 @@ class QuizPresenter extends BasePresenter
 
 	 					if ( $cnth <= $hints )
 	 					{
-	 						$hp = round(( $time / 100 ) * ( 100 / ($hints + 1)) );
-	 						$ht = $hp * $cnth;
-	 
+ 							$hp = round(( $time / 100 ) * ( 100 / ($hints + 1)) );
+							$ht = $hp * $cnth;
+
 	 						// mensi hack aby sa posledny hint zobrazil minimalne 10 sek pred koncom otazky a nie skor
 	 						if ( $cnth == $hints )
 	 						{
@@ -286,28 +297,94 @@ class QuizPresenter extends BasePresenter
 	 						$q = dibi::query('SELECT t1.* FROM answer AS t1 WHERE `t1.question_id` = %i ORDER BY `t1.correct`', $id);
 	 						if ( $q->count() != 0 )
 	 						{
-	 							// viac moznosti
-	 							if ( $q->count() > 1 )
-	 							{
-	 								$answers = $q->fetchAll();
-	 								foreach( $answers as $answer )
-	 								{
-										if ( !in_array($answer['id'], $current_hints ) )
-										{
-											$ajax_storage->hint = $answer['id'];
-											$ajax_storage->hints = $hints - $cnth;
-											$question_session->chints[] = $answer['id'];
-											
-											break;
-										}
-	 								}
-	 							}
-	 							else
-	 							{
-	 								// todo
-	 							}
+								$answers = $q->fetchAll();
+								foreach( $answers as $answer )
+								{
+									if ( !in_array($answer['id'], $current_hints ) )
+									{
+										$ajax_storage->hint = $answer['id'];
+										$ajax_storage->hints = $hints - $cnth;
+										$question_session->chints[] = $answer['id'];
+
+										break;
+									}
+								}
 	 						}
 	 					}
+					}
+					else
+					{
+						$cnth = $question_session->cnth;
+
+						if ( $cnth <= $hints )
+						{
+							$q = dibi::query('SELECT t1.* FROM answer AS t1 WHERE `t1.question_id` = %i ORDER BY `t1.correct`', $id);
+							$data = $q->fetch();
+
+							$hp = round(( $time / 100 ) * ( 100 / ($hints + 1)) );
+							$ht = $hp * $cnth;
+
+							// mensi hack aby sa posledny hint zobrazil minimalne 10 sek pred koncom otazky a nie skor
+							if ( $cnth == $hints )
+							{
+								$ht = max($ht, $time - 10);
+							}
+
+							if ( strtotime("now") - $start < $ht )
+							{
+								$sleep = $ht - (strtotime("now") - $start);
+								$ajax_storage->sleep_request = "1";
+								sleep($sleep);
+							}	
+
+							$str = $data->value;
+							$hint_str = "";
+							$visited = $question_session->chints;
+							$full_str = str_split($str);
+							$expl_str = $full_str;
+	
+							$chars_hint = floor( strlen($str) / ( $hints + 1));
+	
+							$hint_str = "";
+							for ( $i=0; $i < count($visited); $i++ )
+							{ 
+								unset($expl_str[$visited[$i]]);
+							}
+	
+							if ( is_array($expl_str) && count($expl_str) > $chars_hint )
+							{
+								// vyberiem x prvkov z pola ktore este neboli
+								$rand = array_rand($expl_str, $chars_hint);
+								if ( is_array($rand) )
+								{
+									$new_array = array_merge($rand, $visited);
+								}
+								else
+								{
+									$new_array = array_merge(array($rand), $visited);
+								}
+	
+	
+								for ( $i=0; $i < count($full_str); $i++ )
+								{ 
+									if ( in_array($i, $new_array) )
+									{
+										$hint_str .= $full_str[$i];
+									}
+									else
+									{
+										$hint_str .= "_";
+									}
+								}
+	
+	
+								$question_session->chints = $new_array;
+	
+								$ajax_storage->hint = $hint_str;
+								$ajax_storage->hints = $hints - $cnth;
+								$question_session->cnth++;
+							}
+						}
 					}
 				}
 				else
