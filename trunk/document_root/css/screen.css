@@ -43,3 +43,7 @@ div.flash {
 .correct input, .invalid input { 
 	opacity: 0.2;
 }
+
+#quiz-countdown, #question-timer {
+	font-size: 200%;
+}
