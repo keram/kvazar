@@ -7,7 +7,7 @@
 {/if}
 
 @{if isset($quiz)}
-	{snippet quiz}
+{snippet quiz}
 
 		{if $quiz['run'] == 0}
 			<div id="quiz-countdown">
@@ -27,8 +27,7 @@
 	
 		@{/if}
 
-	{/snippet}
-@{/if}
+{/snippet}
 
 <script type="text/javascript">
 //<![CDATA[
@@ -37,8 +36,11 @@
 		"form" : "qform",
 		"url" : {plink Quiz:},
 		"hint_url" : {plink Quiz:hint},
-		"answer_url" : {plink Quiz:answer}
+		"answer_url" : {plink Quiz:answer},
+		"time" : {$quiz['time']}
 	 };
 
 //]]>
 </script>
+
+@{/if}
