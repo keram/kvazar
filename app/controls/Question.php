@@ -132,7 +132,7 @@
 
 				foreach( $this->answers as $answer)
 				{
-					$form->addCheckbox('answer' . $answer['id'], $answer['value'])->getControlPrototype()->value($answer['id']);
+					$form->addCheckbox('answer' . $answer['id'], $answer['value'])->getControlPrototype()->value('1');
 					
 					$group->add($form['answer' . $answer['id']]);
 					if ( $user_data_src->count() == 1)
