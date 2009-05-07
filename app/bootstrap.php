@@ -96,7 +96,5 @@ $router[] = new Route('<presenter>/<action>/<id>', array(
 	'id' => NULL,
 ));
 
-
-
 // Step 5: Run the application!
 $application->run();

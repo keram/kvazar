@@ -156,7 +156,9 @@
 			}
 
 			$form->addHidden('quid')->setValue($this->id);
-			if ( $this->type == "multi" )
+			
+			$question_session = Environment::getSession('question');
+			if ( $this->type == "multi" && $question_session->submitted == 1 )
 			{
 				$form->addSubmit('next', 'Wait')->setDisabled();
 			}
@@ -178,16 +180,32 @@
 					$user = Environment::getUser();
 					$user_answer = false;
 					$valid = 1;
+					$points = 0;
 
 					if ( $this->answers_count > 1 )
 					{
+						// $this->answers[]
 						foreach( $this->answers as $answer)
 						{
 							if ( $form['answer' . $answer['id']]->value || isset($_REQUEST['answer' . $answer['id']]) )
 							{
 								$user_answer .= $answer['id'] . ';';
+								if ( $answer['correct'] )
+								{
+									$points++;
+								}
+							}
+							else
+							{
+								if ( $answer['correct'] )
+								{
+									$points--;
+								}
 							}
 						}
+						
+						$points = max(0, $points);
+						
 						$user_answer = substr($user_answer, 0, -1);
 	
 						$question_session = Environment::getSession('question');
@@ -200,6 +218,17 @@
 					elseif ( $form['useranswer'] != "" )
 					{
 						$user_answer = $form['useranswer']->getValue();
+						// todo toto este otestovat poriadne a do buducna pridat multijazycnost
+						$ustr = String::webalize($user_answer);
+						$ostr = String::webalize($this->answers["value"]);
+						if ( $ustr == $ostr )
+						{
+							$points = 1;
+						}
+						elseif ( $ostr > 5 && levenshtein($ustr, $ostr) < 2 )
+						{ // aby sme zamedzily zbytocnym preklepom
+							$points = 1;
+						}
 					}
 					
 					if ( $user_answer && $valid )
@@ -207,7 +236,7 @@
 						
 						try	{
 							
-							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`) VALUES ( %i, %i, %i, %s, NOW() )', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id, addslashes($user_answer) );
+							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`, `points`) VALUES ( %i, %i, %i, %s, NOW(), %i )', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id, addslashes($user_answer), $points );
 							
 							if ( $this->type == "multi" )
 							{
@@ -216,6 +245,7 @@
 								{
 									$elm->setDisabled();
 								}
+
 								$form->addSubmit('next', 'Wait')->setDisabled();
 								$question_session->submitted = 1;
 							}
