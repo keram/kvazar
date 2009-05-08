@@ -132,7 +132,8 @@ class QuizPresenter extends BasePresenter
 				{
 					if ( $this->quiz['made_questions'] < $this->quiz['questions'] )
 					{
-						$src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
+						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
+						$src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) LIMIT 1', $this->quiz['id']);
 						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id = 15');
 
 						if ( $src_question->count() )
@@ -182,7 +183,6 @@ class QuizPresenter extends BasePresenter
 
 						$question_session->id	  = $this->question->id;
 						$question_session->chints = array();
-
 						$question_session->cnth   = 0;
 					}
 
@@ -323,7 +323,8 @@ class QuizPresenter extends BasePresenter
 
 		try {
 			$question_session = Environment::getSession('question');
-
+			$question_session->cnth++;
+			
 			if ( $id && $id == $question_session->id )
 			{
 				$this->question = $this->getQuestion($id);
@@ -332,23 +333,15 @@ class QuizPresenter extends BasePresenter
 				{
 					$start 	= strtotime($this->question->datetime_start);
 					$remaining_time = $this->question->remaining_time;
+					$response_time = $this->question->response_time;
 					$hints 	= $this->question->hints;
-					$current_hints = $question_session->cnth;
-					$remaining_hints = $hints - $current_hints;
+					$current_hint = $question_session->cnth;
+					$remaining_hints = $hints - $current_hint;
 					
-					$hp = round(( $remaining_time / 100 ) * ( 100 / ($hints + 1)) );
-					$ht = $hp * $current_hints;
-
-					// mensi hack aby sa posledny hint zobrazil minimalne 10 sek pred koncom otazky a nie skor
-					if ( $hints == $current_hints )
+					$hp = floor($response_time / ($hints + 1));
+					if ( strtotime("now") < $start + ( $hp * $current_hint ) )
 					{
-						$ht = max($ht, $remaining_time - 10);
-					}
-
-					if ( strtotime("now") - $start < $ht )
-					{
-						$sleep = $ht - (strtotime("now") - $start);
-						$ajax_storage->sleep_request = "1";
+						$sleep =  ( $start + ( $hp * $current_hint ) ) - strtotime("now");
 						sleep($sleep);
 					}
 					
@@ -365,6 +358,8 @@ class QuizPresenter extends BasePresenter
 								break;
 							}
 						}
+						
+						Debug::firelog("h : " .  implode(", ", $question_session->chints));
 					}
 					else
 					{
@@ -410,6 +405,7 @@ class QuizPresenter extends BasePresenter
 
 							$question_session->chints = $new_array;
 							$ajax_storage->hint = $hint_str;
+							Debug::firelog("h :" .  $hint_str);
 						}
 					}
 					
@@ -417,7 +413,6 @@ class QuizPresenter extends BasePresenter
 					{
 						$ajax_storage->remaining_hints = $remaining_hints - 1;
 					}
-					$question_session->cnth++;
 				}
 				else
 				{
