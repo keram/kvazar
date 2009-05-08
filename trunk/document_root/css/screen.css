@@ -51,3 +51,9 @@ div.flash {
 #frmqform-answer { border: none; font-size: 150%; color: green; letter-spacing: 2px }
 
 #quiz-countdown, #question-timer .small { font-size: 60%; }
+
+#__chart { width: 200px; height: 400px; overflow-x: hidden; overflow-y: auto; }
+
+#__chart .user { font-weight: bold; }
+
+#__chart ul li { list-style-type: decimal; }
