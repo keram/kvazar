@@ -44,15 +44,15 @@ div.flash {
 	opacity: 0.2;
 }
 
-#quiz-countdown, #question-timer {
+#quiz-countdown, #question-timer, #winner {
 	font-size: 200%;
 }
 
 #frmqform-answer { border: none; font-size: 150%; color: green; letter-spacing: 2px }
 
-#quiz-countdown, #question-timer .small { font-size: 60%; }
+#question-timer .small { font-size: 60%; }
 
-#__chart { width: 200px; height: 400px; overflow-x: hidden; overflow-y: auto; }
+#__chart { width: 200px; height: 300px; overflow-x: hidden; overflow-y: auto; }
 
 #__chart .user { font-weight: bold; }
 

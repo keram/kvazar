@@ -105,6 +105,20 @@ class QuizPresenter extends BasePresenter
 		return false;
 	}
 
+	public function actionChart ($id)
+	{
+		$chart = $this->getChart($id);
+		
+		if ( $chart )
+		{
+			$this->template->winner = $this->getWinner($chart);
+		}
+
+		$this->template->quiz = $this->quiz;
+		$this->template->chart = $chart;
+	}
+
+
 	public function actionDefault ()
 	{
 		if ( $this->isAjax() )
@@ -160,7 +174,8 @@ class QuizPresenter extends BasePresenter
 					{
 						$this->flashMessage("Quiz end");
 						$this->invalidateControl('quiz');
-						// debug dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
+						dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
+						$this->quiz['run'] = 0;
 					}
 				}
 				
@@ -195,7 +210,11 @@ class QuizPresenter extends BasePresenter
 			}
 			
 			$chart = $this->getChart($this->quiz['id']);
-			
+			if ( !$this->quiz['run'] )
+			{
+				$this->template->winner = $this->getWinner($chart);
+			}
+
 			// na zaver naplnim template/ajax storage datami
 			
 			$this->template->quiz = $this->quiz;
@@ -232,6 +251,43 @@ class QuizPresenter extends BasePresenter
 		$r = $q->fetchAll();
 		
 		return $r;
+	}
+	
+	public function getWinner($data)
+	{
+		$array = array();
+		$prev = $data[0]['sum'];
+		$winner = null; 
+		
+		if ( $prev != 0 ) 
+		{
+			foreach( $data as $winner )
+			{
+				if ( $prev == $winner['sum'] )
+				{
+					$array[] = $winner;
+				}
+			}
+	
+	
+			if ( count($array) > 1 )
+			{
+				$ids = array();
+				foreach( $array as $winner )
+				{
+					$ids[] = $winner['user_id'];
+				}
+	
+				$q = dibi::query('SELECT SUM(`t1.time`) AS `sum_time`, `t1.user_id`, t2.* FROM user_answer AS t1 INNER JOIN `user` AS t2 ON `t1.user_id` = `t2.id`  WHERE points != 0 AND `user_id` IN ( ' . implode(", ", $ids) . ') GROUP BY `user_id` ORDER BY `sum_time` ASC LIMIT 1' ); 
+				$winner = $q->fetch();
+			}
+			else
+			{
+				$winner = $data[0];
+			}
+		}
+		
+		return $winner;
 	}
 	
 	public function actionAnswer ($id)
