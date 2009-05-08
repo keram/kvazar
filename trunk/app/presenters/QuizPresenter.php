@@ -18,7 +18,6 @@ class QuizPresenter extends BasePresenter
 	public $backlink = '';
 	public $id, $question, $made_questions, $questions;
 	public $quiz;
-	public $test;
 	public $datetime_start, $datetime_end;
 	private $run = 0;
 
@@ -73,47 +72,81 @@ class QuizPresenter extends BasePresenter
 		}
 	}
 
+	public function getQuestion ( $id = null )
+	{
+		if ( $id == null )
+		{
+			$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
+					t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
+					t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
+				 FROM `quiz_has_question` AS t1
+					 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
+					 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
+				 WHERE t1.quiz_id = %i AND t1.datetime_start > NOW() - INTERVAL t2.response_time SECOND GROUP BY t3.question_id', $this->quiz['id']);
+
+		}
+		else
+		{
+			$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
+					t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
+					t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
+				 FROM `quiz_has_question` AS t1
+					 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
+					 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
+				 WHERE t1.quiz_id = %i AND t2.id = %i GROUP BY t3.question_id', $this->quiz['id'], $id);
+				 
+		}
+		
+		if ( $src_question->count() != 0 )
+		{
+			return new Question($this, $src_question);
+		}
+		
+		return false;
+	}
+
 	public function actionDefault ()
 	{
 		if ( $this->isAjax() )
 		{
 			$ajax_storage = $this->presenter->getAjaxDriver();
 		}
+		
+		$question_session = Environment::getSession('question');
+		$qid = null;
+		//$qid = isset($question_session->id) ? $question_session->id : null;
 
 		if ( $this->quiz ) 
 		{
 			if ( $this->quiz['run'] )
 			{
-				// pridam 1 sekundu aj ako rezervu sem
-				$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
-					t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
-					t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
-				 FROM `quiz_has_question` AS t1
-					 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
-					 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
-				 WHERE t1.quiz_id = %i AND t2.state = "approved" AND t1.datetime_start > NOW() - INTERVAL t2.response_time + 5 second GROUP BY t3.question_id', $this->quiz['id']);
+				$this->question = $this->getQuestion($qid);
 				
-				// pripocital som 5 sek ako rezervu na zobrazenie odpovede
-				
-				$question_session = Environment::getSession('question');
-				
-				if ( !$src_question->count() )
+				if ( $this->question && strtotime($this->question->datetime_start) > time() )
+				{
+					$t = strtotime($this->question->datetime_start) - time();
+					sleep($t);
+
+				}
+				elseif ( !$this->question )
 				{
 					if ( $this->quiz['made_questions'] < $this->quiz['questions'] )
 					{
-						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) GROUP BY t1.id ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
-						$src_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.title_sk, t1.title_en, t1.response_time, t2.id AS `answer_id`, t2.correct AS `answer_correct`, t2.value AS `answer_value`,  COUNT(t2.id) AS `answers_count` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id = 11 GROUP BY t1.id');
+						$src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
+						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id = 22');
 
 						if ( $src_question->count() )
 						{
 							$tmp = $src_question->fetch();
-							$qid = $tmp->id;
-	
+
 							try	{
-								dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() )', $this->quiz['id'], $qid);
-								$question_session->submitted = 0; // este toto nejak lepsie vymysliet todo
+								dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() + INTERVAL 5 second )', $this->quiz['id'], $tmp->id);
+								$this->question = $this->getQuestion($tmp->id);
+								$t = strtotime($this->question->datetime_start) - time();
+								sleep($t);
+
 							} catch ( Exception $e ) {
-								$this->flashMessage($e->getMessage);
+								$this->flashMessage($e->getMessage());
 							}
 						}
 						else
@@ -130,33 +163,27 @@ class QuizPresenter extends BasePresenter
 					}
 				}
 				
-				if ( $src_question->count() )
+				if ( $this->question )
 				{
 					if ( $this->quiz['made_questions'] == 0 )
 					{
 						// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
 						$this->invalidateControl('quiz');
 					}
-					
-					$this->question = new Question($this, $src_question);
-					$this->addComponent($this->question, 'qs');
-					$e  = $this->getComponent('qs');
 
-					if ( !$e->form->isSubmitted() ) {
+					$this->addComponent($this->question, 'qs');
+					$qs  = $this->getComponent('qs');
+
+					if ( !$qs->form->isSubmitted() ) {
 						// nema sa co ked je 0 invalidovat kedze este neexistoval tento snippet
 						if ( $this->quiz['made_questions'] > 0 ) {
-							$e->invalidateControl('qst');
+							$qs->invalidateControl('qst');
 						}
 
-						$question_session->id = $this->question->id;
-						$question_session->start = strtotime("now");
-						$question_session->time	 = $this->question->time;
-						$question_session->hints = $this->question->hints;
-						$question_session->type	 = $this->question->type;
-						
+						$question_session->id	  = $this->question->id;
 						$question_session->chints = array();
-						$question_session->cnth = 0;
 
+						$question_session->cnth   = 0;
 					}
 
 					$this->template->question = $this->question;
@@ -168,6 +195,7 @@ class QuizPresenter extends BasePresenter
 			}
 			
 			// na zaver naplnim template/ajax storage datami
+			
 			$this->template->quiz = $this->quiz;
 
 			if ( $this->isAjax() )
@@ -177,7 +205,6 @@ class QuizPresenter extends BasePresenter
 		}
 		else 
 		{
-			
 			// kviz nebezi, ak mam na to prava zobrazim formular na vytvorenie kvizu
 			if ( $this->user->getIdentity()->id == 5 ) {
 				$form = new AppForm($this, 'new');
@@ -196,12 +223,19 @@ class QuizPresenter extends BasePresenter
 		# code...
 	}
 	
+	public function getRank ($id)
+	{
+		// dibi::query('SELECT t1.*, t2.email FROM `user_answer` AS t1 ');
+	}
+	
 	public function actionAnswer ($id)
 	{
 		if ( $this->isAjax() )
 		{
 			$ajax_storage = $this->presenter->getAjaxDriver();
 		}
+		
+		$answer = "";
 
 		try {
 			if ( $id )
@@ -210,28 +244,52 @@ class QuizPresenter extends BasePresenter
 				
 				if ( $id == $question_session->id )
 				{
-					$type = $question_session->type;
+					$this->question = $this->getQuestion($id);
 					
-					$q = dibi::query('SELECT t1.id, t1.value FROM answer AS t1 WHERE `t1.question_id` = %i and `t1.correct` = 1', $id);
-
-					if ( $q->count() != 0 )
+					if ( $this->question )
 					{
-						if ( $type == "multi" )
+						$t = ( strtotime($this->question->datetime_start) + $this->question->response_time ) - time();
+						
+						if ( $t > 0 )
 						{
-							$a = "";
-							// TODO zistit ako efektivnejsie vyfiltrovat hodnoty z pola podla kluca
-							foreach( $q->fetchAll() as $k => $v )
+							sleep($t);
+						}
+						
+						if ( $t > -5 )
+						{
+							if ( $this->question->type == "multi" )
 							{
-								$a[] = $v["id"];
+								$answer = array();
+								// TODO zistit ako efektivnejsie vyfiltrovat hodnoty z pola podla kluca
+								foreach( $this->question->answers as $ans )
+								{
+									if ( $ans['correct'] )
+									{
+										$answer[] = $ans["id"];
+									}
+								}
 							}
-
-							$ajax_storage->answer = $a;
+							else
+							{
+								$answer = $this->question->answers[0]["value"];
+							}
+	
+							if ( $this->isAjax() )
+							{
+								$ajax_storage->answer = $answer;
+							}
+	
+							$this->template->question = $this->question;
+							$this->template->answer = $answer;
 						}
 						else
 						{
-							$a = $q->fetch();
-							$ajax_storage->answer = $a["value"];
+							throw new Exception("Question time out.");
 						}
+					}
+					else
+					{
+						throw new Exception("Question not found.");
 					}
 				}
 				else
@@ -264,129 +322,98 @@ class QuizPresenter extends BasePresenter
 		}
 
 		try {
-			if ( $id )
+			$question_session = Environment::getSession('question');
+
+			if ( $id && $id == $question_session->id )
 			{
-				$question_session = Environment::getSession('question');
-				if ( $id == $question_session->id && $question_session->hints != 0 )
+				$this->question = $this->getQuestion($id);
+				
+				if ( $this->question && $question_session->cnth <= $this->question->hints )
 				{
-					$start 	= $question_session->start;
-					$time 	= $question_session->time;
-					$hints 	= $question_session->hints;
-					$type 	= $question_session->type;
-					$current_hints = $question_session->chints;
+					$start 	= strtotime($this->question->datetime_start);
+					$remaining_time = $this->question->remaining_time;
+					$hints 	= $this->question->hints;
+					$current_hints = $question_session->cnth;
 					
-					if ( $type == "multi" )
+					$hp = round(( $remaining_time / 100 ) * ( 100 / ($hints + 1)) );
+					$ht = $hp * $current_hints;
+
+					// mensi hack aby sa posledny hint zobrazil minimalne 10 sek pred koncom otazky a nie skor
+					if ( $current_hints == $hints )
 					{
-						$cnth = count($current_hints) + 1;
+						$ht = max($ht, $remaining_time - 10);
+					}
 
-	 					if ( $cnth <= $hints )
-	 					{
- 							$hp = round(( $time / 100 ) * ( 100 / ($hints + 1)) );
-							$ht = $hp * $cnth;
+					if ( strtotime("now") - $start < $ht )
+					{
+						$sleep = $ht - (strtotime("now") - $start);
+						$ajax_storage->sleep_request = "1";
+						sleep($sleep);
+					}
+					
+					if ( $this->question->type == "multi" )
+					{
+						foreach( $this->question->answers as $answer )
+						{
+							if ( $answer['correct'] == 1 && !in_array($answer['id'], $question_session->chints ) )
+							{
+								$ajax_storage->hint = $answer['id'];
+								$ajax_storage->hints = $hints - $question_session->cnth;
+								$question_session->chints[] = $answer['id'];
 
-	 						// mensi hack aby sa posledny hint zobrazil minimalne 10 sek pred koncom otazky a nie skor
-	 						if ( $cnth == $hints )
-	 						{
-	 							$ht = max($ht, $time - 10);
-	 						}
-	 
-	 						if ( strtotime("now") - $start < $ht )
-	 						{
-	 							$sleep = $ht - (strtotime("now") - $start);
-	 							$ajax_storage->sleep_request = "1";
-	 							sleep($sleep);
-	 						}
-	 
-	 						$q = dibi::query('SELECT t1.* FROM answer AS t1 WHERE `t1.question_id` = %i ORDER BY `t1.correct`', $id);
-	 						if ( $q->count() != 0 )
-	 						{
-								$answers = $q->fetchAll();
-								foreach( $answers as $answer )
-								{
-									if ( !in_array($answer['id'], $current_hints ) )
-									{
-										$ajax_storage->hint = $answer['id'];
-										$ajax_storage->hints = $hints - $cnth;
-										$question_session->chints[] = $answer['id'];
-
-										break;
-									}
-								}
-	 						}
-	 					}
+								break;
+							}
+						}
 					}
 					else
 					{
-						$cnth = $question_session->cnth;
+						$str = $this->question->answers[0]['value'];
+						$hint_str = "";
+						$visited = $question_session->chints;
+						$full_str = str_split($str);
+						$expl_str = $full_str;
 
-						if ( $cnth <= $hints )
+						$chars_hint = floor( strlen($str) / ( $hints + 1));
+
+						$hint_str = "";
+						for ( $i=0; $i < count($visited); $i++ )
+						{ 
+							unset($expl_str[$visited[$i]]);
+						}
+
+						if ( is_array($expl_str) && count($expl_str) > $chars_hint )
 						{
-							$q = dibi::query('SELECT t1.* FROM answer AS t1 WHERE `t1.question_id` = %i ORDER BY `t1.correct`', $id);
-							$data = $q->fetch();
-
-							$hp = round(( $time / 100 ) * ( 100 / ($hints + 1)) );
-							$ht = $hp * $cnth;
-
-							// mensi hack aby sa posledny hint zobrazil minimalne 10 sek pred koncom otazky a nie skor
-							if ( $cnth == $hints )
+							// vyberiem x prvkov z pola ktore este neboli
+							$rand = array_rand($expl_str, $chars_hint);
+							if ( is_array($rand) )
 							{
-								$ht = max($ht, $time - 10);
+								$new_array = array_merge($rand, $visited);
+							}
+							else
+							{
+								$new_array = array_merge(array($rand), $visited);
 							}
 
-							if ( strtotime("now") - $start < $ht )
-							{
-								$sleep = $ht - (strtotime("now") - $start);
-								$ajax_storage->sleep_request = "1";
-								sleep($sleep);
-							}	
 
-							$str = $data->value;
-							$hint_str = "";
-							$visited = $question_session->chints;
-							$full_str = str_split($str);
-							$expl_str = $full_str;
-	
-							$chars_hint = floor( strlen($str) / ( $hints + 1));
-	
-							$hint_str = "";
-							for ( $i=0; $i < count($visited); $i++ )
+							for ( $i=0; $i < count($full_str); $i++ )
 							{ 
-								unset($expl_str[$visited[$i]]);
-							}
-	
-							if ( is_array($expl_str) && count($expl_str) > $chars_hint )
-							{
-								// vyberiem x prvkov z pola ktore este neboli
-								$rand = array_rand($expl_str, $chars_hint);
-								if ( is_array($rand) )
+								if ( in_array($i, $new_array) )
 								{
-									$new_array = array_merge($rand, $visited);
+									$hint_str .= $full_str[$i];
 								}
 								else
 								{
-									$new_array = array_merge(array($rand), $visited);
+									$hint_str .= "_";
 								}
-	
-	
-								for ( $i=0; $i < count($full_str); $i++ )
-								{ 
-									if ( in_array($i, $new_array) )
-									{
-										$hint_str .= $full_str[$i];
-									}
-									else
-									{
-										$hint_str .= "_";
-									}
-								}
-	
-								$question_session->chints = $new_array;
-	
-								$ajax_storage->hint = $hint_str;
-								$ajax_storage->hints = $hints - $cnth;
-								$question_session->cnth++;
 							}
+
+							$question_session->chints = $new_array;
+
+							$ajax_storage->hint = $hint_str;
+							$ajax_storage->hints = $hints - $current_hints;
 						}
+
+						$question_session->cnth++;
 					}
 				}
 				else
@@ -422,7 +449,6 @@ class QuizPresenter extends BasePresenter
 			}
 			
 			$questions = $form['questions']->getValue() * 1;
-			
 			
 			$_q_data = array( 
 				'key' 	=> substr(md5(strtotime("now")), 16), 
@@ -469,7 +495,6 @@ class QuizPresenter extends BasePresenter
 
 	public function beforeRender ()
 	{
-		$this->template->testt = strtotime("now");
 		$this->template->title = $this->title;
 		$this->template->user = $this->user;
 	}
