@@ -49,3 +49,5 @@ div.flash {
 }
 
 #frmqform-answer { border: none; font-size: 150%; color: green; letter-spacing: 2px }
+
+#quiz-countdown, #question-timer .small { font-size: 60%; }

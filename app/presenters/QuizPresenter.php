@@ -359,7 +359,6 @@ class QuizPresenter extends BasePresenter
 							}
 						}
 						
-						Debug::firelog("h : " .  implode(", ", $question_session->chints));
 					}
 					else
 					{
@@ -405,7 +404,6 @@ class QuizPresenter extends BasePresenter
 
 							$question_session->chints = $new_array;
 							$ajax_storage->hint = $hint_str;
-							Debug::firelog("h :" .  $hint_str);
 						}
 					}
 					
