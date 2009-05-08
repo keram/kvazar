@@ -1,5 +1,5 @@
 <h2><a href="{plink Quiz:}">Quiz:</a></h2>
-
+<hr />
 {if isset($new_form)}
 	<div class="block">
 	{$new_form}
@@ -12,6 +12,9 @@
 		{if $quiz['run'] == 0}
 			<div id="quiz-countdown">
 				Quiz start <strong>{$quiz['datetime_start']|date:'%H:%M:%S - %d.%m.%Y'}</strong>
+				{if $quiz['datetime_end']}
+					 end <strong>{$quiz['datetime_end']|date:'%H:%M:%S - %d.%m.%Y'}</strong>
+				{/if}
 			</div>
 		{/if}
 
@@ -22,6 +25,7 @@
 		@{/if}
 	
 		@{if isset($chart)}
+			
 			{snippet chart}
 				{foreach $chart as $u}
 				{if $iterator->isFirst()}<ul>{/if}
@@ -29,6 +33,12 @@
 				{if $iterator->isLast()}<ul>{/if}
 				{/foreach}
 			{/snippet}
+
+			@{if isset($winner)}
+				<div id="winner">
+					And winner is: <strong>{$winner->email}</strong>
+				</div>
+			@{/if}
 		@{/if}
 
 {/snippet}
@@ -57,3 +67,4 @@
 </script>
 
 @{/if}
+<hr />

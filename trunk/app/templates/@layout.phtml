@@ -49,14 +49,8 @@
 		{if $user->isAuthenticated()}
 		<div id="sidebar" >
 			<div id="user-info">
-				<strong>{$user->getIdentity()->nick}</strong><br />
-				<span>{$user->getIdentity()->email}</span>
+				<strong>{$user->getIdentity()->nick}</strong> : <span>{$user->getIdentity()->email}</span>
 			</div>
-		{/if}
-		
-		@{$logged_users->render()}
-		
-		{if $user->isAuthenticated()}
 		</div>
 		{/if}
 		
