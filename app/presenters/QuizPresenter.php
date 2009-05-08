@@ -133,7 +133,7 @@ class QuizPresenter extends BasePresenter
 					if ( $this->quiz['made_questions'] < $this->quiz['questions'] )
 					{
 						$src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
-						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id = 22');
+						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id = 15');
 
 						if ( $src_question->count() )
 						{
@@ -248,7 +248,7 @@ class QuizPresenter extends BasePresenter
 					
 					if ( $this->question )
 					{
-						$t = ( strtotime($this->question->datetime_start) + $this->question->response_time ) - time();
+						$t = strtotime($this->question->datetime_start) + $this->question->response_time - time();
 						
 						if ( $t > 0 )
 						{
@@ -334,12 +334,13 @@ class QuizPresenter extends BasePresenter
 					$remaining_time = $this->question->remaining_time;
 					$hints 	= $this->question->hints;
 					$current_hints = $question_session->cnth;
+					$remaining_hints = $hints - $current_hints;
 					
 					$hp = round(( $remaining_time / 100 ) * ( 100 / ($hints + 1)) );
 					$ht = $hp * $current_hints;
 
 					// mensi hack aby sa posledny hint zobrazil minimalne 10 sek pred koncom otazky a nie skor
-					if ( $current_hints == $hints )
+					if ( $hints == $current_hints )
 					{
 						$ht = max($ht, $remaining_time - 10);
 					}
@@ -355,10 +356,10 @@ class QuizPresenter extends BasePresenter
 					{
 						foreach( $this->question->answers as $answer )
 						{
-							if ( $answer['correct'] == 1 && !in_array($answer['id'], $question_session->chints ) )
-							{
+							// pri multi posielam nespravne odpovede ako hinty!
+							if ( $answer['correct'] == 0 && !in_array($answer['id'], $question_session->chints ) )
+							{ 
 								$ajax_storage->hint = $answer['id'];
-								$ajax_storage->hints = $hints - $question_session->cnth;
 								$question_session->chints[] = $answer['id'];
 
 								break;
@@ -408,13 +409,15 @@ class QuizPresenter extends BasePresenter
 							}
 
 							$question_session->chints = $new_array;
-
 							$ajax_storage->hint = $hint_str;
-							$ajax_storage->hints = $hints - $current_hints;
 						}
-
-						$question_session->cnth++;
 					}
+					
+					if ( $this->isAjax() )
+					{
+						$ajax_storage->remaining_hints = $remaining_hints - 1;
+					}
+					$question_session->cnth++;
 				}
 				else
 				{
