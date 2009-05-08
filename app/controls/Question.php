@@ -10,7 +10,7 @@
 	{
 		#	internal variables
 		public $useAjax = true;
-		public $id, $title, $answers, $answers_count, $scope, $used, $response_time, $time, $datetime_start, $answer_id;
+		public $id, $title, $answers, $answers_count, $scope, $used, $response_time, $remaining_time, $datetime_start, $answer_id;
 		public $hints, $type;
 		public $form;
 		public $presenter;
@@ -55,7 +55,7 @@
 			$this->response_time = $data->response_time;
 			$now = date("Y-m-d H:i:s", time());
 			$this->datetime_start = isset($data->datetime_start) ? $data->datetime_start : $now;
-			$this->time = $this->response_time - ( strtotime($now) - strtotime($this->datetime_start) );
+			$this->remaining_time = $this->response_time - ( strtotime($now) - min( strtotime($now), strtotime($this->datetime_start)) );
 			$this->answers_count = $data->answers_count;
 			$this->type = $this->getType();
 			
@@ -80,11 +80,10 @@
 			
 			if ( $this->presenter->isAjax() )
 			{
-				
 				$ajax_storage = $this->presenter->getAjaxDriver();
 				$ajax_storage->question = array(
 					"id" 	=> $this->id,
-					"time" 	=> $this->time,
+					"remaining_time" => $this->remaining_time,
 					"hints"	=> $this->hints,
 					"type" 	=> $this->type
 				);
@@ -118,12 +117,19 @@
 			$group = $form->addGroup($title);
 			
 			$user = Environment::getUser();
-			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id);
+			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i ORDER BY `time` DESC LIMIT 1', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id);
 			$user_data = $user_data_src->fetch();
 
+			$question_session = Environment::getSession('question');
+			$question_session->submitted = 0;
 			
 			if ( $this->answers_count > 1 )
 			{
+				if ( $user_data )
+				{
+					$question_session->submitted = 1;
+				}
+				
 				$user_answers = explode(';', $user_data['value']);
 
 				foreach( $this->answers as $answer)
@@ -131,7 +137,7 @@
 					$form->addCheckbox('answer' . $answer['id'], $answer['value'])->getControlPrototype()->value($answer['id']);
 					
 					$group->add($form['answer' . $answer['id']]);
-					if ( $user_data_src->count() == 1)
+					if ( $user_data )
 					{
 						$form['answer' . $answer['id']]->setDisabled();
 						if ( in_array($answer['id'], $user_answers) )
@@ -146,19 +152,14 @@
 				$form->addText('useranswer', "User answer")->addRule(Form::FILLED, 'Not filled answer.');
 				$form->addText('answer', "");
 				$group->add($form['useranswer']);
-/* // todo neviem k comu je toot
-				if ( $user_data_src->count() == 1)
-				{
-					$form['answer' . $this->answer_id]->setDisabled();
-					$form['answer' . $this->answer_id]->setValue(stripslashes($user_data->value));
-				}
-*/
-			}
 
-			$form->addHidden('quid')->setValue($this->id);
+				if ( $user_data )
+				{
+					$form['useranswer']->setValue(stripslashes($user_data->value));
+				}
+			}
 			
-			$question_session = Environment::getSession('question');
-			if ( $this->type == "multi" && $question_session->submitted == 1 )
+			if ( $this->type == "multi" && $user_data )
 			{
 				$form->addSubmit('next', 'Wait')->setDisabled();
 			}
@@ -173,14 +174,15 @@
 		
 		public function questionFormSubmitted ($form)
 		{
-
+			$question_session = Environment::getSession('question');
 			try	{
-				if ( $this->id == $form['quid']->getValue() && strtotime($this->datetime_start) + $this->time >= strtotime("now") )
+				if ( $this->id == $question_session->id && strtotime($this->datetime_start) + $this->response_time >= strtotime("now") )
 				{
 					$user = Environment::getUser();
 					$user_answer = false;
 					$valid = 1;
 					$points = 0;
+					
 
 					if ( $this->answers_count > 1 )
 					{
@@ -194,10 +196,7 @@
 								{
 									$points++;
 								}
-							}
-							else
-							{
-								if ( $answer['correct'] )
+								else
 								{
 									$points--;
 								}
@@ -220,24 +219,19 @@
 						$user_answer = $form['useranswer']->getValue();
 						// todo toto este otestovat poriadne a do buducna pridat multijazycnost
 						$ustr = String::webalize($user_answer);
-						$ostr = String::webalize($this->answers["value"]);
-						if ( $ustr == $ostr )
-						{
-							$points = 1;
-						}
-						elseif ( $ostr > 5 && levenshtein($ustr, $ostr) < 2 )
-						{ // aby sme zamedzily zbytocnym preklepom
+						$ostr = String::webalize($this->answers[0]["value"]);
+						Debug::dump($ustr . ' -- ' . $ostr);
+						if ( $ustr == $ostr || ( $ostr > 5 && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2 )  )
+						{	 // aby sme zamedzily zbytocnym preklepom a zaroven Dawkins bude niekto iny ako Hawkins
 							$points = 1;
 						}
 					}
 					
 					if ( $user_answer && $valid )
 					{
-						
 						try	{
-							
 							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`, `points`) VALUES ( %i, %i, %i, %s, NOW(), %i )', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id, addslashes($user_answer), $points );
-							
+	
 							if ( $this->type == "multi" )
 							{
 								$form->offsetUnset('send');
@@ -245,22 +239,20 @@
 								{
 									$elm->setDisabled();
 								}
-
+	
 								$form->addSubmit('next', 'Wait')->setDisabled();
-								$question_session->submitted = 1;
 							}
-						} catch (DibiDriverException $e) {
 
+						} catch (DibiDriverException $e) {
 							if ( $e->getCode() == 1062 )
 							{
-								$form->addError("Answer has been submited");
+								$form->addError("Answer has been submitted");
 							}
 							else
 							{
 								$form->addError($e->getMessage());
 							}
 						} 
-						
 					}
 					
 					$this->presenter->redirect('Quiz:');
