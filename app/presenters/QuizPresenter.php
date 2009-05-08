@@ -194,9 +194,12 @@ class QuizPresenter extends BasePresenter
 				$this->invalidateControl('quiz');
 			}
 			
+			$chart = $this->getChart($this->quiz['id']);
+			
 			// na zaver naplnim template/ajax storage datami
 			
 			$this->template->quiz = $this->quiz;
+			$this->template->chart = $chart;
 
 			if ( $this->isAjax() )
 			{
@@ -223,9 +226,12 @@ class QuizPresenter extends BasePresenter
 		# code...
 	}
 	
-	public function getRank ($id)
+	public function getChart ($id)
 	{
-		// dibi::query('SELECT t1.*, t2.email FROM `user_answer` AS t1 ');
+		$q = dibi::query('SELECT t1.*, COUNT(t1.points) AS `sum`, t2.email FROM `user_answer` AS t1 INNER JOIN `user` AS t2 ON t1.user_id = t2.id WHERE `t1.quiz_id` = %i GROUP BY t1.user_id ORDER BY `sum` DESC', $id);
+		$r = $q->fetchAll();
+		
+		return $r;
 	}
 	
 	public function actionAnswer ($id)
