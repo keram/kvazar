@@ -28,7 +28,6 @@
 			 	// $this->validateAnswer();
 			// 	Debug::dump("jurko");
 			}
-			
 		}
 		###	
 		
