@@ -18,25 +18,11 @@
 	
 		@{/if}
 	
-		@{if isset($chart)}
-			@{if isset($winner)}
-				<div id="winner">
-					And winner is: <strong>{$winner->nick}</strong>
-				</div>
+		{snippet chart}
+			@{if isset($chart)}
+				@{$chart->render()}
 			@{/if}
-			
-			{snippet chart}
-				@{foreach $chart as $u}
-				@{if $iterator->isFirst()}
-				<h3>Chart: </h3>
-				<ul>@{/if}
-					<li class="{if $u['user_id'] == $user->getIdentity()->id}user{/if}{if $iterator->isEven()} even{/if}">{$u['nick']} : {$u['sum']}</li>
-				@{if $iterator->isLast()}</ul>@{/if}
-				@{/foreach}
-
-			{/snippet}
-
-		@{/if}
+		{/snippet}
 
 {/snippet}
 

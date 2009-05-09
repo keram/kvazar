@@ -16,7 +16,7 @@ class QuizPresenter extends BasePresenter
 	private $title;
 	public $backlink = '';
 	public $id, $question, $made_questions, $questions;
-	public $quiz;
+	public $quiz, $chart;
 	public $datetime_start, $datetime_end;
 	private $run = 0;
 
@@ -45,6 +45,7 @@ class QuizPresenter extends BasePresenter
 				$this->quiz['questions'] = $data->questions;
 				$this->quiz['datetime_start'] = $data->datetime_start;
 				$this->quiz['datetime_end'] = $data->datetime_end;
+				
 			}
 		}
 
@@ -104,20 +105,6 @@ class QuizPresenter extends BasePresenter
 		return false;
 	}
 
-	public function actionChart ($id)
-	{
-		$chart = $this->getChart($id);
-		
-		if ( $chart )
-		{
-			$this->template->winner = $this->getWinner($chart);
-		}
-
-		$this->template->quiz = $this->quiz;
-		$this->template->chart = $chart;
-	}
-
-
 	public function actionDefault ()
 	{
 		if ( $this->isAjax() )
@@ -156,9 +143,8 @@ class QuizPresenter extends BasePresenter
 								$tmp = $src_question->fetch();
 	
 								try	{
-									dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() + INTERVAL 5 second )', $this->quiz['id'], $tmp->id);
+									dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() + INTERVAL 3 second )', $this->quiz['id'], $tmp->id);
 									$this->question = $this->getQuestion($tmp->id);
-									$this->invalidateControl('chart');
 
 									$t = strtotime($this->question->datetime_start) - time();
 									sleep($t);
@@ -186,9 +172,10 @@ class QuizPresenter extends BasePresenter
 	
 					if ( $this->question )
 					{
-						if ( $this->quiz['made_questions'] == 0 )
-						{
+						if ( $this->quiz['made_questions'] < 2 )
+						{ 
 							// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
+							// zmena z x == 0 na x < 2 
 							$this->invalidateControl('quiz');
 						}
 	
@@ -219,16 +206,18 @@ class QuizPresenter extends BasePresenter
 				}
 			}
 			
-			$chart = $this->getChart($this->quiz['id']);
 			if ( $this->quiz['datetime_end'] )
 			{
-				$this->template->winner = $this->getWinner($chart);
+				
+				$this->chart = $this->getComponent('chart');
+				$this->invalidateControl('chart');
+				$this->template->chart = $this->chart;
+
 			}
 
 			// na zaver naplnim template/ajax storage datami
 			
 			$this->template->quiz = $this->quiz;
-			$this->template->chart = $chart;
 
 			if ( $this->isAjax() )
 			{
@@ -278,53 +267,10 @@ class QuizPresenter extends BasePresenter
 		
 	}
 	
-	public function getChart ($id)
-	{
-		$q = dibi::query('SELECT t1.*, SUM(t1.points) AS `sum`, t2.nick FROM `user_answer` AS t1 INNER JOIN `user` AS t2 ON t1.user_id = t2.id WHERE `t1.quiz_id` = %i GROUP BY t1.user_id ORDER BY `sum` DESC', $id);
-		$r = $q->fetchAll();
-		
-		return $r;
-	}
-	
-	public function getWinner($data)
-	{
-		$array = array();
-		$winner = null; 
-		
-		if ( count($data) != 0  ) 
-		{
-			$prev = $data[0]['sum'];
-			foreach( $data as $winner )
-			{
-				if ( $prev == $winner['sum'] )
-				{
-					$array[] = $winner;
-				}
-			}
-	
-	
-			if ( count($array) > 1 )
-			{
-				$ids = array();
-				foreach( $array as $winner )
-				{
-					$ids[] = $winner['user_id'];
-				}
-	
-				$q = dibi::query('SELECT SUM(`t1.time`) AS `sum_time`, `t1.user_id`, t2.* FROM user_answer AS t1 INNER JOIN `user` AS t2 ON `t1.user_id` = `t2.id`  WHERE points != 0 AND `user_id` IN ( ' . implode(", ", $ids) . ') GROUP BY `user_id` ORDER BY `sum_time` ASC LIMIT 1' ); 
-				$winner = $q->fetch();
-			}
-			else
-			{
-				$winner = $data[0];
-			}
-		}
-		
-		return $winner;
-	}
-	
+
 	public function actionAnswer ($id)
 	{
+		
 		if ( $this->isAjax() )
 		{
 			$ajax_storage = $this->presenter->getAjaxDriver();
@@ -369,7 +315,7 @@ class QuizPresenter extends BasePresenter
 							{
 								$answer = $this->question->answers[0]["value"];
 							}
-	
+
 							if ( $this->isAjax() )
 							{
 								$ajax_storage->answer = $answer;
@@ -397,7 +343,6 @@ class QuizPresenter extends BasePresenter
 			{
 				throw new Exception("Question id not passed");
 			}
-
 		} catch ( Exception $e ) {
 			if ( !$this->isAjax() )
 			{
@@ -408,6 +353,10 @@ class QuizPresenter extends BasePresenter
 				$ajax_storage->error = $e->getMessage();
 			}
 		}
+		
+		$this->chart = $this->getComponent('chart');
+		$this->template->chart = $this->chart;
+		$this->invalidateControl('chart');
 	}
 	
 	public function actionHint ($id)
@@ -576,6 +525,12 @@ class QuizPresenter extends BasePresenter
 				$form = new AppForm($this->presenter, $name);
 				// $this->addComponent($form, $name);
 	
+				return;
+
+			case 'chart':
+				$chart = new Chart($this->quiz);
+				$this->addComponent($chart, $name);
+
 				return;
 	
 			default:
