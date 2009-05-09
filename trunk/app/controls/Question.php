@@ -252,8 +252,11 @@
 							}
 						} 
 					}
-					
-					$this->presenter->redirect('Quiz:');
+
+					if ( !$this->presenter->isAjax() )
+					{
+						$this->presenter->redirect('Quiz:');
+					}
 				}
 				else
 				{

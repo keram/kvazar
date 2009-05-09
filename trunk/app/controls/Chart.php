@@ -10,29 +10,80 @@
 	{
 		#	internal variables
 		public $useAjax = false;
-		public $quiz_id, $users, $questions;
+		public $quiz, $users, $questions;
 		
 		
 		#	Constructor
-		function __construct ( $quiz_id )
+		function __construct ( $quiz )
 		{
-			$this->quiz_id = $quiz_id;
-			// TODO napojit na model
-			$this->initContent();
+			$this->quiz = $quiz;
 		}
 		###	
 		
 		
 		public function initContent ()
 		{
-			$tmp = dibi::test('SELECT t1.*, t2.* FROM `user` AS t1 RIGHT JOIN `user_answer` AS t2 ON t1.id = t2.user_id WHERE t2.quiz_id = %i', $this->quiz_id);
-			// Debug::dump($tmp->fetchAll());
+			$q = dibi::query('SELECT t1.*, SUM(t1.points) AS `sum`, t2.nick FROM `user_answer` AS t1 INNER JOIN `user` AS t2 ON t1.user_id = t2.id WHERE `t1.quiz_id` = %i GROUP BY t1.user_id ORDER BY `sum` DESC', $this->quiz['id']);
+			$r = $q->fetchAll();
+
 			
+			return $r;
 		}
+
+		public function getWinner($data)
+		{
+			$array = array();
+			$winner = null; 
+	
+			if ( count($data) != 0  ) 
+			{
+				$prev = $data[0]['sum'];
+				if ( $prev != 0 )
+				{
+					foreach( $data as $winner )
+					{
+						if ( $prev == $winner['sum'] )
+						{
+							$array[] = $winner;
+						}
+					}
+	
+	
+					if ( count($array) > 1 )
+					{
+						$ids = array();
+						foreach( $array as $winner )
+						{
+							$ids[] = $winner['user_id'];
+						}
+	
+						$q = dibi::query('SELECT SUM(`t1.time`) AS `sum_time`, `t1.user_id`, t2.* FROM user_answer AS t1 INNER JOIN `user` AS t2 ON `t1.user_id` = `t2.id`  WHERE points != 0 AND `user_id` IN ( ' . implode(", ", $ids) . ') GROUP BY `user_id` ORDER BY `sum_time` ASC LIMIT 1' ); 
+						$winner = $q->fetch();
+					}
+					else
+					{
+						$winner = $data[0];
+					}
+				}
+			}
+	
+			return $winner;
+		}
+
 
 		public function render ()
 		{
 			$template = $this->createTemplate();
+			$user =  Environment::getUser();
+			$data = $this->initContent();
+			if ( $this->quiz['datetime_end'] )
+			{
+				$winner = $this->getWinner($data);
+				$template->winner = $winner;
+			}
+			
+			$template->user = $user;
+			$template->data = $data;
 			// renderf
 			$template->useAjax = $this->useAjax;
 			$template->setFile(dirname(__FILE__) . '/chart.phtml');
