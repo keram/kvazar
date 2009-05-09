@@ -1,11 +1,5 @@
 <h2><a href="{plink Quiz:}">Quiz:</a></h2>
 <hr />
-{if isset($new_form)}
-	<div class="block">
-	{$new_form}
-	</div>
-{/if}
-
 @{if isset($quiz)}
 {snippet quiz}
 
@@ -25,20 +19,23 @@
 		@{/if}
 	
 		@{if isset($chart)}
-			
-			{snippet chart}
-				{foreach $chart as $u}
-				{if $iterator->isFirst()}<ul>{/if}
-					<li class="{if $u['user_id'] == $user->getIdentity()->id}user{/if}{if $iterator->isEven()} even{/if}">{$u['email']} : {$u['sum']}</li>
-				{if $iterator->isLast()}<ul>{/if}
-				{/foreach}
-			{/snippet}
-
 			@{if isset($winner)}
 				<div id="winner">
-					And winner is: <strong>{$winner->email}</strong>
+					And winner is: <strong>{$winner->nick}</strong>
 				</div>
 			@{/if}
+			
+			{snippet chart}
+				@{foreach $chart as $u}
+				@{if $iterator->isFirst()}
+				<h3>Chart: </h3>
+				<ul>@{/if}
+					<li class="{if $u['user_id'] == $user->getIdentity()->id}user{/if}{if $iterator->isEven()} even{/if}">{$u['nick']} : {$u['sum']}</li>
+				@{if $iterator->isLast()}</ul>@{/if}
+				@{/foreach}
+
+			{/snippet}
+
 		@{/if}
 
 {/snippet}
@@ -68,3 +65,17 @@
 
 @{/if}
 <hr />
+
+{if isset($start_form)}
+	<div class="block">
+	{$start_form->render()}
+	</div>
+	<hr />	
+{/if}
+
+{if isset($new_form)}
+	<div class="block">
+	{$new_form->render()}
+	</div>
+	<hr />	
+{/if}

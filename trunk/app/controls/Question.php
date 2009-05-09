@@ -182,11 +182,10 @@
 					$valid = 1;
 					$points = 0;
 					
-
 					if ( $this->answers_count > 1 )
 					{
 						// $this->answers[]
-						foreach( $this->answers as $answer)
+						foreach( $this->answers as $answer )
 						{
 							if ( $form['answer' . $answer['id']]->value || isset($_REQUEST['answer' . $answer['id']]) )
 							{
@@ -203,10 +202,9 @@
 						}
 						
 						$points = max(0, $points);
-						
 						$user_answer = substr($user_answer, 0, -1);
-	
 						$question_session = Environment::getSession('question');
+
 						if ( $question_session->submitted == 1 )
 						{
 							$form->addError("Answer has been submited");
@@ -219,8 +217,9 @@
 						// todo toto este otestovat poriadne a do buducna pridat multijazycnost
 						$ustr = String::webalize($user_answer);
 						$ostr = String::webalize($this->answers[0]["value"]);
-						Debug::dump($ustr . ' -- ' . $ostr);
-						if ( $ustr == $ostr || ( $ostr > 5 && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2 )  )
+
+						// if ( $ustr == $ostr || ( !is_numeric($ostr) && strlen($ostr) > 5 && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2 )  )
+						if ( $ustr == $ostr || ( strlen($ostr) > 5 && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2 )  )
 						{	 // aby sme zamedzily zbytocnym preklepom a zaroven Dawkins bude niekto iny ako Hawkins
 							$points = 1;
 						}
