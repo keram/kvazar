@@ -1,0 +1,10 @@
+@{if isset($chart)}
+{snippet chart}
+	{foreach $chart as $u}
+	{if $iterator->isFirst()}<ul>{/if}
+		<li class="{if $u['user_id'] == $user->getIdentity()->id}user{/if}{if $iterator->isEven()} even{/if}">{$u['email']} : {$u['sum']}</li>
+	{if $iterator->isLast()}<ul>{/if}
+	{/foreach}
+{/snippet}
+
+@{/if}

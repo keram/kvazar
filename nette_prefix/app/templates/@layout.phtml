@@ -1,0 +1,67 @@
+{**
+ * My Application layout template.
+ *
+ * @copyright  Copyright (c) 2009 John Doe
+ * @package    MyApplication
+ * @version    $Id: @layout.phtml 182 2008-12-31 00:28:33Z david@grudl.com $
+ *
+ * @param string   $title    page title
+ * @param string   $robots   tell robots how to index the content of a page (optinal)
+ * @param string   $baseUri  web base URI
+ * @param array    $flashes  flash messages
+ * @param Template $content  view template
+ *}
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta http-equiv="Content-Language" content="en" />
+
+	<meta name="description" content="Nette Framework web application skeleton" />
+	{if isset($robots)}<meta name="robots" content="{$robots}">{/if}
+
+	<title>{$title}</title>
+
+	<link rel="stylesheet" media="screen,projection,tv" href="{$baseUri}css/screen.css" type="text/css" />
+	<link rel="stylesheet" media="print" href="{$baseUri}css/print.css" type="text/css" />
+	<link rel="shortcut icon" href="{$baseUri}favicon.ico" type="image/x-icon" />
+	{if $user->isAuthenticated()}
+	<script type="text/javascript" src="{$baseUri}js/jquery.js"></script>
+	<script type="text/javascript" src="{$baseUri}js/functions.js"></script>
+	{/if}
+</head>
+
+<body>
+
+	{foreach $flashes as $flash}<div class="flash {$flash->type}">{$flash->message}</div>{/foreach}
+	{if $presenter->name == "Homepage"}
+	<h1><a href="{plink Homepage:}">Homepage</a></h1>
+	{else}
+	<strong><a href="{plink Homepage:}">Homepage</a></strong>
+	{/if}
+	<div id="content">
+
+		@{include $content}
+		
+		{if $user->isAuthenticated()}
+		<div id="sidebar" >
+			<div id="user-info">
+				<strong>{$user->getIdentity()->nick}</strong> : <span>{$user->getIdentity()->email}</span>
+			</div>
+		</div>
+		{/if}
+		
+
+	</div>
+	<hr />	
+	<div id="footer">
+		<a href="http://intype.info/" title="Intype is a powerful and intuitive code text editor for Windows with lightning fast response. " target="_blank">Intype</a>
+		<a href="http://nettephp.com/" title="Nette Framework is a powerful, component-based and event-driven framework for creating web applications and services in PHP 5." target="_blank">Nette PHP</a>
+	</div>
+
+	<div id="debug">
+		&nbsp;
+	</div>
+</body>
+</html>

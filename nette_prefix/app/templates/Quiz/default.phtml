@@ -1,0 +1,68 @@
+<h2><a href="{plink Quiz:}">Quiz:</a></h2>
+<hr />
+@{if isset($quiz)}
+{snippet quiz}
+
+		{if $quiz['run'] == 0}
+			<div id="quiz-countdown">
+				Quiz start <strong>{$quiz['datetime_start']|date:'%H:%M:%S - %d.%m.%Y'}</strong>
+				{if $quiz['datetime_end']}
+					 end <strong>{$quiz['datetime_end']|date:'%H:%M:%S - %d.%m.%Y'}</strong>
+				{/if}
+			</div>
+		{/if}
+
+		@{if isset($question)}
+	
+			@{$question->render()}
+	
+		@{/if}
+	
+		{snippet chart}
+			@{if isset($chart)}
+				@{$chart->render()}
+			@{/if}
+		{/snippet}
+
+{/snippet}
+
+<script type="text/javascript">
+//<![CDATA[
+
+	var quiz_config = {
+	{if isset($question)}
+		"question" : {
+			"id" 	: {$question->id},
+			"remaining_time" : {$question->remaining_time},
+			"hints"	: {$question->hints},
+			"type" 	: {$question->type}
+		},
+	{/if}
+	{if isset($quiz)}
+		"quiz" : {$quiz},
+	{/if}
+		"form" : "qform",
+		"url" : {plink Quiz:},
+		"hint_url" : {plink Quiz:hint},
+		"answer_url" : {plink Quiz:answer}
+	 };
+//]]>
+</script>
+
+@{/if}
+<hr />
+
+{if isset($start_form)}
+	<div class="block">
+	{$start_form->render()}
+	</div>
+	<hr />	
+{/if}
+
+{if isset($new_form)}
+	<div class="block">
+	{$new_form->render()}
+	</div>
+	<hr />
+{/if}
+

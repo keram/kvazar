@@ -1,0 +1,62 @@
+body {
+	font: 16px/1.5 "Trebuchet MS", "Geneva CE", lucida, sans-serif;
+	color: #333;
+	background-color: #fff;
+}
+
+h1 {
+	font-size: 150%;
+}
+
+h2, h3 {
+	font-size: 120%;
+}
+
+h3 { font-weight: normal; }
+
+#spinner {
+	display: none;
+	position: absolute;
+	border: none;
+	z-index: 1000;
+}
+
+div.flash {
+	color: black;
+	background: #FFF9D7;
+	border: 1px solid #E2C822;
+	padding: 1em;
+	margin: 1em 0;
+}
+
+
+.correct { 
+	color: green;
+}
+
+.invalid { 
+	color: silver;
+/*	font-size: small; */
+}
+
+.valid-checked { 
+	font-weight: bold;
+}
+
+.invalid-checked { color: red; }
+
+.correct input, .invalid input { 
+	opacity: 0.2;
+}
+
+#quiz-countdown, #question-timer, #winner {
+	font-size: 120%;
+}
+
+#frmqform-answer { border: none; font-size: 150%; color: green; letter-spacing: 2px; background: #FFF; }
+
+#question-timer .small { font-size: 80%; }
+
+ul.chart li.user  { font-weight: bold; }
+ul.chart { max-width: 300px; max-height: 300px; overflow-x: hidden; overflow-y: auto; }
+ul.chart li { list-style-type: decimal; }

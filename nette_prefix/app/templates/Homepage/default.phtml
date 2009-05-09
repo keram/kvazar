@@ -1,0 +1,10 @@
+<h2><a href="{plink User:}">User:</a></h2>
+<div class="block">
+	<a href="{plink User:login}">Login</a>
+	<a href="{plink User:registration}">Registration</a>
+	<a href="{plink User:logout}">Logout</a>
+</div>
+<h2><a href="{plink Quiz:}">Quiz:</a></h2>
+{if $user->isAuthenticated() && $user->getIdentity()->id == 5}
+<h2><a href="{plink Question:}">Question:</a></h2>
+{/if}

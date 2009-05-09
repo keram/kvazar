@@ -1,0 +1,14 @@
+{snippet logged_users}
+{if $presenter->user->isAuthenticated()}
+
+<div id="logged-users">
+{foreach $rows as $row}
+	<div>
+		<span class="name">{if $row->nick}{$row->nick}{else}{$row->email}{/if}</span>
+		<span class="last-action">{$row->datetime_last_action}</span>
+	</div>
+{/foreach}
+</div>
+
+{/if}
+{/snippet}
