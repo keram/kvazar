@@ -21,7 +21,7 @@ require LIBS_DIR . '/primary_functions.lib.php';
 
 
 
-// Step 2: Configure environment
+// Step 2: Configure environment a
 // 2a) enable Nette\Debug for better exception and error visualisation
 Debug::enable();
 
