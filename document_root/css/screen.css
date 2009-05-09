@@ -6,8 +6,13 @@ body {
 
 h1 {
 	font-size: 150%;
-	color: #165ca3;
 }
+
+h2, h3 {
+	font-size: 120%;
+}
+
+h3 { font-weight: normal; }
 
 #spinner {
 	display: none;
@@ -45,15 +50,15 @@ div.flash {
 }
 
 #quiz-countdown, #question-timer, #winner {
-	font-size: 200%;
+	font-size: 120%;
 }
 
-#frmqform-answer { border: none; font-size: 150%; color: green; letter-spacing: 2px }
+#frmqform-answer { border: none; font-size: 150%; color: green; letter-spacing: 2px; background: #FFF; }
 
-#question-timer .small { font-size: 60%; }
+#question-timer .small { font-size: 80%; }
 
-#__chart { width: 200px; height: 300px; overflow-x: hidden; overflow-y: auto; }
 
 #__chart .user { font-weight: bold; }
+#__chart ul { max-width: 300px; max-height: 300px; overflow-x: hidden; overflow-y: auto; }
 
 #__chart ul li { list-style-type: decimal; }

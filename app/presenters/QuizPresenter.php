@@ -11,7 +11,6 @@ require_once APP_DIR . '/controls/Question.php';
 
 // Debug::dump(strlen($val) . ' : ' . $r);
 
-
 class QuizPresenter extends BasePresenter
 {
 	private $title;
@@ -34,13 +33,13 @@ class QuizPresenter extends BasePresenter
 		else
 		{
 			$db  = dibi::getConnection();
-			$src = $db->dataSource('SELECT t1.*, COUNT(t2.quiz_id) AS `made_questions` FROM quiz AS t1 LEFT JOIN `quiz_has_question` AS t2 ON t1.id = t2.quiz_id WHERE t1.datetime_start IS NOT NULL AND t1.datetime_end IS NULL GROUP BY t1.id LIMIT 1');
+			$src = $db->dataSource('SELECT t1.*, COUNT(t2.quiz_id) AS `made_questions` FROM quiz AS t1 LEFT JOIN `quiz_has_question` AS t2 ON t1.id = t2.quiz_id WHERE t1.datetime_start IS NOT NULL GROUP BY t1.id ORDER BY t1.id DESC LIMIT 1');
 			
 			if ( $src->count() )
 			{
 				$data = $src->fetch();
 				$this->quiz['id'] = $data->id;
-				$this->quiz['run'] = ( strtotime($data->datetime_start)  < time() ) ? 1 : 0;
+				$this->quiz['run'] = ( strtotime($data->datetime_start)  < time() && !$data->datetime_end ) ? 1 : 0;
 				$this->quiz['time'] = abs(strtotime($data->datetime_start) - time());
 				$this->quiz['made_questions'] = $data->made_questions;
 				$this->quiz['questions'] = $data->questions;
@@ -125,7 +124,6 @@ class QuizPresenter extends BasePresenter
 		{
 			$ajax_storage = $this->presenter->getAjaxDriver();
 		}
-		
 		$question_session = Environment::getSession('question');
 		$qid = null;
 		//$qid = isset($question_session->id) ? $question_session->id : null;
@@ -135,82 +133,94 @@ class QuizPresenter extends BasePresenter
 			if ( $this->quiz['run'] )
 			{
 				$this->question = $this->getQuestion($qid);
+				$form = $this->getComponent('qform');
 				
-				if ( $this->question && strtotime($this->question->datetime_start) > time() )
+				if ( $form->isSubmitted() !== TRUE )  // hack ale neviem uz nemam sil
 				{
-					$t = strtotime($this->question->datetime_start) - time();
-					sleep($t);
-
-				}
-				elseif ( !$this->question )
-				{
-					if ( $this->quiz['made_questions'] < $this->quiz['questions'] )
+					if ( $this->question && strtotime($this->question->datetime_start) > time() )
 					{
-						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
-						$src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) LIMIT 1', $this->quiz['id']);
-						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id = 15');
-
-						if ( $src_question->count() )
+						$t = strtotime($this->question->datetime_start) - time();
+						sleep($t);
+	
+					}
+					elseif ( !$this->question )
+					{
+						if ( $this->quiz['made_questions'] < $this->quiz['questions'] )
 						{
-							$tmp = $src_question->fetch();
+							// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
+							$src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) LIMIT 1', $this->quiz['id']);
+							// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id = 15');
+	
+							if ( $src_question->count() )
+							{
+								$tmp = $src_question->fetch();
+	
+								try	{
+									dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() + INTERVAL 5 second )', $this->quiz['id'], $tmp->id);
+									$this->question = $this->getQuestion($tmp->id);
+									$this->invalidateControl('chart');
 
-							try	{
-								dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() + INTERVAL 5 second )', $this->quiz['id'], $tmp->id);
-								$this->question = $this->getQuestion($tmp->id);
-								$t = strtotime($this->question->datetime_start) - time();
-								sleep($t);
-
-							} catch ( Exception $e ) {
-								$this->flashMessage($e->getMessage());
+									$t = strtotime($this->question->datetime_start) - time();
+									sleep($t);
+	
+								} catch ( Exception $e ) {
+									$this->flashMessage($e->getMessage());
+								}
+							}
+							else
+							{
+								$str = 'Missing questions. Have left ' . ( $this->quiz['questions'] - $this->quiz['made_questions'] ) . ' from ' . $this->quiz['questions'] . ' questions.';
+								$this->flashMessage($str);
 							}
 						}
 						else
 						{
-							$str = 'Missing questions. Have left ' . ( $this->quiz['questions'] - $this->quiz['made_questions'] ) . ' from ' . $this->quiz['questions'] . ' questions.';
-							$this->flashMessage($str);
+							$this->flashMessage("Quiz end");
+							$this->invalidateControl('quiz');
+							dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
+							$this->quiz['run'] = 0;
+							$this->quiz['time'] = 0;
+							$this->quiz['datetime_end'] = date("Y-m-d H:i:s", time()); // toto bude mensia odchylka ale snad nikomu nebude vadit predsa
 						}
 					}
-					else
+	
+					if ( $this->question )
 					{
-						$this->flashMessage("Quiz end");
-						$this->invalidateControl('quiz');
-						dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
-						$this->quiz['run'] = 0;
-					}
-				}
-				
-				if ( $this->question )
-				{
-					if ( $this->quiz['made_questions'] == 0 )
-					{
-						// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
-						$this->invalidateControl('quiz');
-					}
-
-					$this->addComponent($this->question, 'qs');
-					$qs  = $this->getComponent('qs');
-
-					if ( !$qs->form->isSubmitted() ) {
-						// nema sa co ked je 0 invalidovat kedze este neexistoval tento snippet
-						if ( $this->quiz['made_questions'] > 0 ) {
-							$qs->invalidateControl('qst');
+						if ( $this->quiz['made_questions'] == 0 )
+						{
+							// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
+							$this->invalidateControl('quiz');
 						}
-
-						$question_session->id	  = $this->question->id;
-						$question_session->chints = array();
-						$question_session->cnth   = 0;
+	
+						$this->addComponent($this->question, 'qs');
+						$qs  = $this->getComponent('qs');
+	
+						if ( !$qs->form->isSubmitted() ) {
+							// nema sa co ked je 0 invalidovat kedze este neexistoval tento snippet
+							if ( $this->quiz['made_questions'] > 0 ) {
+								$qs->invalidateControl('qst');
+							}
+	
+							$question_session->id	  = $this->question->id;
+							$question_session->chints = array();
+							$question_session->cnth   = 0;
+						}
+	
+						$this->template->question = $this->question;
 					}
-
-					$this->template->question = $this->question;
 				}
 			}
 			else // kviz este nezacal preto invalidnem cely quiz snippet
-			{
+			{	
 				$this->invalidateControl('quiz');
+				if ( $this->quiz['datetime_end'] )
+				{
+					$this->newQuiz();
+				}
 			}
 			
 			$chart = $this->getChart($this->quiz['id']);
-			if ( !$this->quiz['run'] )
+			if ( $this->quiz['datetime_end'] )
 			{
 				$this->template->winner = $this->getWinner($chart);
 			}
@@ -227,27 +237,50 @@ class QuizPresenter extends BasePresenter
 		}
 		else 
 		{
-			// kviz nebezi, ak mam na to prava zobrazim formular na vytvorenie kvizu
-			if ( $this->user->getIdentity()->id == 5 ) {
+			$this->newQuiz();
+		}
+	}
+	
+	public function newQuiz ()
+	{
+		if ( $this->user->getIdentity()->id == 5 ) {
+			$q = dibi::query('SELECT * FROM quiz WHERE datetime_start IS NULL LIMIT 1');
+			$f = $q->fetch();
+
+			if ( !$f )
+			{
 				$form = new AppForm($this, 'new');
 				$form->addText('questions', 'Questions:');
 				$form->addSubmit('create', 'Create');
 				$form->setDefaults(array( 'questions' => 20 ));
 				$form->onSubmit[] = array($this, 'newQuizFormSubmitted');
 				$this->template->new_form = $form;
+				
+			}
+			else
+			{
+				$form = new AppForm($this, 'start');
+				$form->setAction($this->link('start', $f['id'] ));
+				$form->setMethod('get');
+				$form->addText('sec', 'Seconds:')->setValue(60);
+				$form->addSubmit('start', 'Start');
+				$form->setDefaults(array( 'questions' => 20 ));
+				$form->onSubmit[] = array($this, 'newQuizFormSubmitted');
+				$this->template->start_form = $form;
+
 			}
 		}
-		
 	}
+	
 
 	public function actionEnd ($id)
 	{
-		# code...
+		
 	}
 	
 	public function getChart ($id)
 	{
-		$q = dibi::query('SELECT t1.*, COUNT(t1.points) AS `sum`, t2.email FROM `user_answer` AS t1 INNER JOIN `user` AS t2 ON t1.user_id = t2.id WHERE `t1.quiz_id` = %i GROUP BY t1.user_id ORDER BY `sum` DESC', $id);
+		$q = dibi::query('SELECT t1.*, SUM(t1.points) AS `sum`, t2.nick FROM `user_answer` AS t1 INNER JOIN `user` AS t2 ON t1.user_id = t2.id WHERE `t1.quiz_id` = %i GROUP BY t1.user_id ORDER BY `sum` DESC', $id);
 		$r = $q->fetchAll();
 		
 		return $r;
@@ -256,11 +289,11 @@ class QuizPresenter extends BasePresenter
 	public function getWinner($data)
 	{
 		$array = array();
-		$prev = $data[0]['sum'];
 		$winner = null; 
 		
-		if ( $prev != 0 ) 
+		if ( count($data) != 0  ) 
 		{
+			$prev = $data[0]['sum'];
 			foreach( $data as $winner )
 			{
 				if ( $prev == $winner['sum'] )
@@ -300,6 +333,7 @@ class QuizPresenter extends BasePresenter
 		$answer = "";
 
 		try {
+		
 			if ( $id )
 			{
 				$question_session = Environment::getSession('question');
@@ -340,7 +374,7 @@ class QuizPresenter extends BasePresenter
 							{
 								$ajax_storage->answer = $answer;
 							}
-	
+							
 							$this->template->question = $this->question;
 							$this->template->answer = $answer;
 						}
@@ -471,7 +505,7 @@ class QuizPresenter extends BasePresenter
 					
 					if ( $this->isAjax() )
 					{
-						$ajax_storage->remaining_hints = $remaining_hints - 1;
+						$ajax_storage->remaining_hints = $remaining_hints;
 					}
 				}
 				else
