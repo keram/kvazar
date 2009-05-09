@@ -57,8 +57,6 @@ div.flash {
 
 #question-timer .small { font-size: 80%; }
 
-
-#__chart .user { font-weight: bold; }
-#__chart ul { max-width: 300px; max-height: 300px; overflow-x: hidden; overflow-y: auto; }
-
-#__chart ul li { list-style-type: decimal; }
+ul.chart li.user  { font-weight: bold; }
+ul.chart { max-width: 300px; max-height: 300px; overflow-x: hidden; overflow-y: auto; }
+ul.chart li { list-style-type: decimal; }
