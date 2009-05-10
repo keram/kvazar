@@ -65,7 +65,7 @@ $application->errorPresenter = 'Error';
 
 NEnvironment::getServiceLocator()->addService("Users", 'Nette\Security\IAuthenticator');
 // NEnvironment::getServiceLocator()->addService("Users", 'IAuthenticator');
-// NEnvironment::getServiceLocator()->addService("Acl", 'Nettep\Security\IAuthorizator');
+NEnvironment::getServiceLocator()->addService("Acl", 'Nettep\Security\IAuthorizator');
 // NEnvironment::getServiceLocator()->addService("Acl", 'Nettep\Security\IAuthorizator');
 
 // Step 4: Setup application router
