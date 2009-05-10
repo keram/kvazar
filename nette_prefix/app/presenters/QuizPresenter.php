@@ -113,8 +113,8 @@ class QuizPresenter extends BasePresenter
 				if ( $cnt == 1 && $this->quiz['made_questions'] < $this->quiz['questions'])
 				{
 					try	{
-						$src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) LIMIT 1', $this->quiz['id']);
-						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
+						// $src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) LIMIT 1', $this->quiz['id']);
+						$src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
 						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id = 15');
 	
 						if ( !$src_new_question->count() )
@@ -204,7 +204,7 @@ class QuizPresenter extends BasePresenter
 				{
 					$this->flashMessage("Quiz end");
 					$this->invalidateControl('quiz');
-					// dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
+					dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
 					$this->quiz['run'] = 0;
 					$this->quiz['time'] = 0;
 					$this->quiz['datetime_end'] = date("Y-m-d H:i:s", time()); // toto bude mensia odchylka ale snad nikomu nebude vadit predsa
