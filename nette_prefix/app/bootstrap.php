@@ -8,7 +8,7 @@
  * @version    $Id: bootstrap.php 273 2009-04-15 02:05:53Z david@grudl.com $
  */
 
-
+echo strlen("frantisek.jozef.mrkvicka@googlemail.com");
 
 // Step 1: Load Nette Framework
 // this allows load Nette Framework classes automatically so that
@@ -22,10 +22,12 @@ require LIBS_DIR . '/Nettep/loader.php';
 
 // Step 2: Configure environment a
 // 2a) enable Nette\Debug for better exception and error visualisation
-NDebug::enable();
+// NDebug::enable();
 
-NDebug::enable(NDebug::DEVELOPMENT);
-NEnvironment::setMode(NEnvironment::DEVELOPMENT);
+ NDebug::enable(NDebug::DEVELOPMENT);
+ NEnvironment::setMode(NEnvironment::DEVELOPMENT);
+// NDebug::enable(NDebug::PRODUCTION);
+// NEnvironment::setMode(NEnvironment::PRODUCTION);
 
 // 2b) load configuration from config.ini file
 NEnvironment::loadConfig();

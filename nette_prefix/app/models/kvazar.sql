@@ -14,13 +14,14 @@ DROP TABLE IF EXISTS `kvazar`.`user` ;
 SHOW WARNINGS;
 CREATE  TABLE IF NOT EXISTS `kvazar`.`user` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
-  `nick` VARCHAR(45) NULL ,
+  `nick` VARCHAR(45) NOT NULL ,
   `email` VARCHAR(64) NOT NULL ,
   `password` VARCHAR(64) NOT NULL ,
   `datetime_register` DATETIME NOT NULL ,
   `datetime_lastlogin` DATETIME NULL ,
   PRIMARY KEY (`id`, `email`) ,
-  UNIQUE INDEX `index2` (`email` ASC) )
+  UNIQUE INDEX `index2` (`email` ASC) ,
+  UNIQUE INDEX `nick` (`nick` ASC) )
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8
 COLLATE = utf8_general_ci;
@@ -89,7 +90,7 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`answer` (
   CONSTRAINT `fk_answer_question`
     FOREIGN KEY (`question_id` )
     REFERENCES `kvazar`.`question` (`id` )
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8
@@ -139,7 +140,8 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`user_answer` (
   `value` VARCHAR(128) NOT NULL ,
   `time` DATETIME NOT NULL ,
   `comment` TEXT NULL ,
-  PRIMARY KEY (`user_id`, `quiz_id`, `question_id`) ,
+  `points` TINYINT UNSIGNED NULL DEFAULT 0 ,
+  PRIMARY KEY (`user_id`, `quiz_id`, `question_id`, `value`) ,
   INDEX `fk_user_has_quiz_has_question_user` (`user_id` ASC) ,
   INDEX `fk_user_has_quiz_has_question_quiz_has_question` (`quiz_id` ASC, `question_id` ASC) ,
   CONSTRAINT `fk_user_has_quiz_has_question_user`
