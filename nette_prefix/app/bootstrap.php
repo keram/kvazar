@@ -8,8 +8,6 @@
  * @version    $Id: bootstrap.php 273 2009-04-15 02:05:53Z david@grudl.com $
  */
 
-echo strlen("frantisek.jozef.mrkvicka@googlemail.com");
-
 // Step 1: Load Nette Framework
 // this allows load Nette Framework classes automatically so that
 // you don't have to litter your code with 'require' statements
