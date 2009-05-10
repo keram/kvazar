@@ -6,11 +6,12 @@
 	#
 	#/doc
 	
-	class Question extends Control
+	class Question extends NControl
 	{
 		#	internal variables
 		public $useAjax = true;
-		public $id, $title, $answers, $answers_count, $scope, $used, $response_time, $remaining_time, $datetime_start, $answer_id;
+		public $id, $title;
+		public $answers, $answers_count, $scope, $response_time, $remaining_time, $datetime_start, $answer_id;
 		public $hints, $type;
 		public $form;
 		public $presenter;
@@ -23,11 +24,6 @@
 			parent::__construct();
 			$this->bindData($src);
 			$this->createForm();
-			if ( $this->form->isSubmitted() )
-			{
-			 	// $this->validateAnswer();
-			// 	Debug::dump("jurko");
-			}
 		}
 		###	
 		
@@ -108,18 +104,18 @@
 		public function createForm ()
 		{
 			$form = $this->presenter->getComponent('qform');
-			// $form = new AppForm($this->presenter, 'qform');
+			// $form = new NAppForm($this->presenter, 'qform');
 			$form->renderer->clientScript = NULL;
 			$elm = $form->getElementPrototype();
 			$elm->attrs['id'] = 'qform';
 			$title = ( $this->title['sk'] && $this->title['en'] ) ? $this->title['sk'] . ' / ' .  $this->title['en'] : ( ( $this->title['sk'] ) ? $this->title['sk'] : $this->title['en']);
 			$group = $form->addGroup($title);
 			
-			$user = Environment::getUser();
+			$user = NEnvironment::getUser();
 			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i ORDER BY `time` DESC LIMIT 1', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id);
 			$user_data = $user_data_src->fetch();
 
-			$question_session = Environment::getSession('question');
+			$question_session = NEnvironment::getSession('question');
 			$question_session->submitted = 0;
 			
 			if ( $this->answers_count > 1 )
@@ -148,7 +144,7 @@
 			}
 			else
 			{
-				$form->addText('useranswer', "User answer")->addRule(Form::FILLED, 'Not filled answer.');
+				$form->addText('useranswer', "User answer")->addRule(NForm::FILLED, 'Not filled answer.');
 				$form->addText('answer', "");
 				$group->add($form['useranswer']);
 
@@ -173,11 +169,11 @@
 		
 		public function questionFormSubmitted ($form)
 		{
-			$question_session = Environment::getSession('question');
+			$question_session = NEnvironment::getSession('question');
 			try	{
 				if ( $this->id == $question_session->id && strtotime($this->datetime_start) + $this->response_time >= strtotime("now") )
 				{
-					$user = Environment::getUser();
+					$user = NEnvironment::getUser();
 					$user_answer = false;
 					$valid = 1;
 					$points = 0;
@@ -203,7 +199,7 @@
 						
 						$points = max(0, $points);
 						$user_answer = substr($user_answer, 0, -1);
-						$question_session = Environment::getSession('question');
+						$question_session = NEnvironment::getSession('question');
 
 						if ( $question_session->submitted == 1 )
 						{
@@ -215,8 +211,8 @@
 					{
 						$user_answer = $form['useranswer']->getValue();
 						// todo toto este otestovat poriadne a do buducna pridat multijazycnost
-						$ustr = String::webalize($user_answer);
-						$ostr = String::webalize($this->answers[0]["value"]);
+						$ustr = NString::webalize($user_answer);
+						$ostr = NString::webalize($this->answers[0]["value"]);
 
 						// if ( $ustr == $ostr || ( !is_numeric($ostr) && strlen($ostr) > 5 && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2 )  )
 						if ( $ustr == $ostr || ( strlen($ostr) > 5 && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2 )  )
@@ -277,7 +273,7 @@
 			// renderf
 			$template->useAjax = $this->useAjax;
 			$template->setFile(dirname(__FILE__) . '/question.phtml');
-			$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');
+			$template->registerFilter('Nettep\Templates\NCurlyBracketsFilter::invoke');
 			$template->render();
 		}
 	}

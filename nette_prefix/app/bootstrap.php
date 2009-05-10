@@ -14,83 +14,70 @@
 // this allows load Nette Framework classes automatically so that
 // you don't have to litter your code with 'require' statements
 
-require LIBS_DIR . '/Nette/loader.php';
+require LIBS_DIR . '/Nettep/loader.php';
 
-require LIBS_DIR . '/primary_functions.lib.php';
 //require dirname(__FILE__) . '/../../../Nette/loader.php';
 
 
 
 // Step 2: Configure environment a
 // 2a) enable Nette\Debug for better exception and error visualisation
-Debug::enable();
+NDebug::enable();
 
-Debug::enable(Debug::DEVELOPMENT);
-Environment::setMode(Environment::DEVELOPMENT);
+NDebug::enable(NDebug::DEVELOPMENT);
+NEnvironment::setMode(NEnvironment::DEVELOPMENT);
 
 // 2b) load configuration from config.ini file
-Environment::loadConfig();
+NEnvironment::loadConfig();
 
 require_once LIBS_DIR . '/dibi/dibi.php';
-dibi::connect(Environment::getConfig('database'));
+dibi::connect(NEnvironment::getConfig('database'));
 
-$site = Environment::getConfig('site');
+$site = NEnvironment::getConfig('site');
 foreach($site as $key=>$val)
 {
 	define($key, $val);
 }
 
 // 2c) check if directory /app/temp is writable
-if (@file_put_contents(Environment::expand('%tempDir%/_check'), '') === FALSE) {
-	throw new Exception("Make directory '" . Environment::getVariable('tempDir') . "' writable!");
+if (@file_put_contents(NEnvironment::expand('%tempDir%/_check'), '') === FALSE) {
+	throw new Exception("Make directory '" . NEnvironment::getVariable('tempDir') . "' writable!");
 }
 
 // 2d) enable RobotLoader - this allows load all classes automatically
-$loader = new RobotLoader();
+$loader = new NRobotLoader();
 $loader->addDirectory(APP_DIR);
 $loader->addDirectory(LIBS_DIR);
 $loader->register();
 
 // 2e) setup sessions
-$session = Environment::getSession();
+$session = NEnvironment::getSession();
 $session->setSavePath(APP_DIR . '/sessions/');
 
 
 
 // Step 3: Configure application
 // 3a) get and setup a front controller
-$application = Environment::getApplication();
+$application = NEnvironment::getApplication();
 $application->errorPresenter = 'Error';
 //$application->catchExceptions = TRUE;
 
 
-$acl = new Permission();
-$acl->addRole('guest');
-$acl->addRole('user', 'guest');
-$acl->addRole('admin', 'user');
-
-$acl->addResource('quiz');
-$acl->addResource('question');
-$acl->addResource('homepage');
-$acl->addResource('user');
-
-$acl->allow('guest', 'homepage');
-$acl->allow('guest', 'user');
-$acl->allow('user', 'quiz');
-$acl->allow('admin', 'question');
-
-
+NEnvironment::getServiceLocator()->addService("Users", 'Nette\Security\IAuthenticator');
+// NEnvironment::getServiceLocator()->addService("Users", 'IAuthenticator');
+// NEnvironment::getServiceLocator()->addService("Acl", 'Nettep\Security\IAuthorizator');
+// NEnvironment::getServiceLocator()->addService("Acl", 'Nettep\Security\IAuthorizator');
 
 // Step 4: Setup application router
 $router = $application->getRouter();
 
-$router[] = new Route('index.php', array(
+$router[] = new NRoute('index.php', array(
 	'presenter' => 'Homepage',
 	'action' => 'default',
-), Route::ONE_WAY);
+), NRoute::ONE_WAY);
 
 
-$router[] = new Route('<presenter>/<action>/<id>', array(
+$router[] = new NRoute('<presenter>/<action>/<id>', array(
 	'presenter' => 'Homepage',
 	'action' => 'default',
 	'id' => NULL,

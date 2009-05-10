@@ -20,11 +20,11 @@ class QuestionPresenter extends BasePresenter
 	
 	public function actionDefault ()
 	{
-		$form = new AppForm($this, 'newform');
+		$form = new NAppForm($this, 'newform');
 		$form->addText('title_sk', 'Title (sk):');
 		$form->addText('title_en', 'Title (en):');
 		$form->addText('answer_1', 'Answer (correct):')
-			->addRule(Form::FILLED, 'Please provide correct answer.');
+			->addRule(NForm::FILLED, 'Please provide correct answer.');
 		// $form['correct_1']->checked = true;
 		// $form['correct_1']->disabled = true;
 		$form->addText('answer_2', 'Answer 2:');
@@ -135,7 +135,7 @@ class QuestionPresenter extends BasePresenter
 					$this->flashMessage("Your question hasn't been successful added.");
 				}
 			}
-		} catch (FormValidationException $e) {
+		} catch (NFormValidationException $e) {
 			$form->addError($e->getMessage());
 		}
 	}

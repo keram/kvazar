@@ -16,13 +16,13 @@
  * @author     John Doe
  * @package    MyApplication
  */
-abstract class BasePresenter extends Presenter
+abstract class BasePresenter extends NPresenter
 {
 	public $user;
 
 	public function startup ()
 	{
-		$this->user = Environment::getUser();
+		$this->user = NEnvironment::getUser();
 		$logged_users = new LoggedUsers;
 		
 		if ( $this->user->isAuthenticated() ) {
@@ -47,7 +47,7 @@ abstract class BasePresenter extends Presenter
 	{
 		$template = parent::createTemplate();
 
-		$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');
+ 		$template->registerFilter('Nettep\Templates\NCurlyBracketsFilter::invoke');
 		return $template;
 	}
 

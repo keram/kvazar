@@ -5,7 +5,7 @@
 /**
  * Quiz model.
  */
-class Quizs extends Object
+class Quizs extends NObject
 {
 	/** @var string */
 	private $table = 'quiz';

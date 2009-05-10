@@ -8,7 +8,7 @@ class UserPresenter extends BasePresenter
 	public function startup ()
 	{
 		$this->title = title . ' / User';
-		$user = Environment::getUser();
+		$user = NEnvironment::getUser();
 		parent::startup();
 	}
 
@@ -20,14 +20,14 @@ class UserPresenter extends BasePresenter
 	{
 		$this->title .= ' / Registration';
 
-		$form = new AppForm($this, 'form');
+		$form = new NAppForm($this, 'form');
 		$form->addText('nick', 'Nick:');
 
 		$form->addText('email', 'E-mail:')
-			->addRule(Form::FILLED, 'Please provide a email.');
+			->addRule(NForm::FILLED, 'Please provide a email.');
 
 		$form->addPassword('password', 'Password:')
-			->addRule(Form::FILLED, 'Please provide a password.');
+			->addRule(NForm::FILLED, 'Please provide a password.');
 
 		$form->addSubmit('register', 'Register');
 		$form->onSubmit[] = array($this, 'registrationFormSubmitted');
@@ -53,12 +53,12 @@ class UserPresenter extends BasePresenter
 	{
 		$this->title .= ' / Login';
 
-		$form = new AppForm($this, 'form');
+		$form = new NAppForm($this, 'form');
 		$form->addText('email', 'E-mail:')
-			->addRule(Form::FILLED, 'Please provide a email.');
+			->addRule(NForm::FILLED, 'Please provide a email.');
 
 		$form->addPassword('password', 'Password:')
-			->addRule(Form::FILLED, 'Please provide a password.');
+			->addRule(NForm::FILLED, 'Please provide a password.');
 
 		$form->addSubmit('login', 'Login');
 		$form->onSubmit[] = array($this, 'loginFormSubmitted');
@@ -82,17 +82,17 @@ class UserPresenter extends BasePresenter
 					dibi::query('DELETE FROM logged WHERE `user_id` = %i', $this->user->getIdentity()->id);
 					dibi::query('INSERT INTO logged (`user_id`, `datetime_logged`, `datetime_last_action`) VALUES
 								(%i, NOW(), NOW() )', $this->user->getIdentity()->id);
-	
+
 					$this->flashMessage('Your login has been successful.');
 					$this->redirect('Quiz:');
 				}
-			} catch (AuthenticationException $e) {
+			} catch (NAuthenticationException $e) {
 				$form->addError($e->getMessage());
 			}
 
 			// dibi::query('DELETE FROM logged WHERE `datetime_last_action` < NOW() - INTERVAL 15 MINUTE');
 
-		} catch (FormValidationException $e) {
+		} catch (NFormValidationException $e) {
 			$form->addError($e->getMessage());
 		}
 	}
@@ -114,14 +114,14 @@ class UserPresenter extends BasePresenter
 							(%i, NOW(), NOW() )', dibi::getInsertId());
 				
 				try {
-					$user = Environment::getUser();
+					$user = NEnvironment::getUser();
 					$user->authenticate($nick, $pass, array('email' => $email));
 					$this->flashMessage('Your registration has been successful.');
 					$this->getApplication()->restoreRequest($this->backlink);
 					
 					dibi::commit();
 					$this->redirect('Quiz:');
-				} catch (AuthenticationException $e) {
+				} catch (NAuthenticationException $e) {
 					$form->addError($e->getMessage());
 					dibi::rollback();
 				}
@@ -136,7 +136,7 @@ class UserPresenter extends BasePresenter
 					$form->addError($e->getMessage());
 				}
 			}
-		} catch (FormValidationException $e) {
+		} catch (NFormValidationException $e) {
 			$form->addError($e->getMessage());
 		}
 	}

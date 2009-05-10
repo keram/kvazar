@@ -29,7 +29,7 @@ class Quiz extends Control
 		// render
 		$template->useAjax = $this->useAjax;
 		$template->setFile(dirname(__FILE__) . '/quiz.phtml');
-		$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');
+		$template->registerFilter('Nettep\Templates\NCurlyBracketsFilter::invoke');
 		$template->render();
 	}
 

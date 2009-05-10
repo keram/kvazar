@@ -6,7 +6,7 @@
 	#
 	#/doc
 	
-	class Chart extends Control
+	class Chart extends NControl 
 	{
 		#	internal variables
 		public $useAjax = false;
@@ -74,7 +74,7 @@
 		public function render ()
 		{
 			$template = $this->createTemplate();
-			$user =  Environment::getUser();
+			$user =  NEnvironment::getUser();
 			$data = $this->initContent();
 			if ( $this->quiz['datetime_end'] )
 			{
@@ -87,7 +87,7 @@
 			// renderf
 			$template->useAjax = $this->useAjax;
 			$template->setFile(dirname(__FILE__) . '/chart.phtml');
-			$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');
+			$template->registerFilter('Nettep\Templates\NCurlyBracketsFilter::invoke');
 			$template->render();
 		}
 

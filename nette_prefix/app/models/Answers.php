@@ -5,7 +5,7 @@
 /**
  * Albums model.
  */
-class Answers extends Object
+class Answers extends NObject
 {
 	/** @var string */
 	private $table = 'answer';

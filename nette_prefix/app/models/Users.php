@@ -5,7 +5,7 @@
 /**
  * Users authenticator.
  */
-class Users extends Object implements IAuthenticator
+class Users extends NObject implements IAuthenticator
 {
 
 	/**
@@ -22,15 +22,15 @@ class Users extends Object implements IAuthenticator
 		$row = dibi::select('*')->from('user')->where('email=%s', $email)->fetch();
 
 		if (!$row) {
-			throw new AuthenticationException("User not found.", self::IDENTITY_NOT_FOUND);
+			throw new NAuthenticationException("User not found.", self::IDENTITY_NOT_FOUND);
 		}
 
 		if ($row->password !== $credentials[self::PASSWORD]) {
-			throw new AuthenticationException("Invalid password.", self::INVALID_CREDENTIAL);
+			throw new NAuthenticationException("Invalid password.", self::INVALID_CREDENTIAL);
 		}
 
 		unset($row->password);
-		return new Identity($row->nick, NULL, $row);
+		return new NIdentity($row->nick, NULL, $row);
 	}
 
 }

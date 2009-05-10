@@ -2,7 +2,7 @@
 
 
 
-class DataGrid extends Control
+class DataGrid extends NControl
 {
 	/** @persistent */
 	public $page = 1;
@@ -26,7 +26,7 @@ class DataGrid extends Control
 	public function __construct()
 	{
 		parent::__construct();
-		$this->paginator = new Paginator;
+		$this->paginator = new NPaginator;
 		$this->paginator->itemsPerPage = $this->rowsPerPage;
 	}
 
@@ -77,7 +77,7 @@ class DataGrid extends Control
 		$template = $this->createTemplate();
 		$template->paginator = $this->paginator;
 		$template->setFile(dirname(__FILE__) . '/paginator.phtml');
-		$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');
+		$template->registerFilter('Nettep\Templates\NCurlyBracketsFilter::invoke');
 		$template->useAjax = $this->useAjax;
 		$template->steps = array_values(array_unique($arr));
 		$template->render();
@@ -135,7 +135,7 @@ class DataGrid extends Control
 		$template->order = $list;
 		$template->useAjax = $this->useAjax;
 		$template->setFile(dirname(__FILE__) . '/grid.phtml');
-		$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');
+		$template->registerFilter('Nettep\Templates\NCurlyBracketsFilter::invoke');
 		$template->render();
 	}
 

@@ -2,7 +2,6 @@
 
 require_once APP_DIR . '/controls/Question.php';
 
-
 // 
 // for ( $i=0; $i < strlen($val); $i++ )
 // { 
@@ -18,13 +17,12 @@ class QuizPresenter extends BasePresenter
 	public $id, $question, $made_questions, $questions;
 	public $quiz, $chart;
 	public $datetime_start, $datetime_end;
-	private $run = 0;
-
+	
 	public function startup ()
 	{
 		parent::startup();
 		
-		$this->title = title . ' / Quiz';
+		$this->title = title . ' / Quiz';	
 		
 		if ( !$this->user->isAuthenticated() ) {
 			$this->flashMessage('Your must been logged.');
@@ -45,10 +43,12 @@ class QuizPresenter extends BasePresenter
 				$this->quiz['questions'] = $data->questions;
 				$this->quiz['datetime_start'] = $data->datetime_start;
 				$this->quiz['datetime_end'] = $data->datetime_end;
-				
+			}
+			else
+			{
+				$this->quiz = 0;
 			}
 		}
-
 	}
 	
 	public function actionStart ($id, $sec = 60)
@@ -72,8 +72,10 @@ class QuizPresenter extends BasePresenter
 		}
 	}
 
-	public function getQuestion ( $id = null )
+	public function getQuestion ( $id = null, $cnt = 1 )
 	{
+		$question = false;
+		
 		if ( $id == null )
 		{
 			$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
@@ -94,15 +96,59 @@ class QuizPresenter extends BasePresenter
 					 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
 					 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
 				 WHERE t1.quiz_id = %i AND t2.id = %i GROUP BY t3.question_id', $this->quiz['id'], $id);
-				 
 		}
 		
-		if ( $src_question->count() != 0 )
+		if ( $src_question->count() == 0 && $id == null )
 		{
-			return new Question($this, $src_question);
+			$cache = NEnvironment::getCache();
+			$tmp_id = null;
+			if ( isset($cache['new_question']) )
+			{
+				sleep(1);
+				$tmp_id = $cache['new_question'];
+			}
+			else
+			{
+				$cache['new_question'] = null; // snad toto ako lock posluzi ok
+				if ( $cnt == 1 && $this->quiz['made_questions'] < $this->quiz['questions'])
+				{
+					try	{
+						$src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) LIMIT 1', $this->quiz['id']);
+						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
+						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id = 15');
+	
+						if ( !$src_new_question->count() )
+						{
+							throw new Exception("Question not found");
+						}
+	
+						$tmp = $src_new_question->fetch();
+						$tmp_id = $tmp->id;
+						$cache->save('new_question', $tmp_id, array('expire' => time() + $tmp->response_time));
+						dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() + INTERVAL 2 second )', $this->quiz['id'], $tmp_id);
+					} catch ( Exception $e ) {
+						$tmp_id = null;
+					}
+				}
+			}
+
+			// ochrana proti zacykleniu
+			if ( $cnt < 5 )
+			{
+				$question = $this->getQuestion($tmp_id, ++$cnt);
+				$this->quiz['made_questions']++;
+			}
+			else
+			{
+				$this->quiz['made_questions']--;
+			}
+		}
+		else
+		{
+			$question = new Question($this, $src_question);
 		}
 		
-		return false;
+		return $question;
 	}
 
 	public function actionDefault ()
@@ -111,94 +157,64 @@ class QuizPresenter extends BasePresenter
 		{
 			$ajax_storage = $this->presenter->getAjaxDriver();
 		}
-		$question_session = Environment::getSession('question');
-		$qid = null;
-		//$qid = isset($question_session->id) ? $question_session->id : null;
-
+		
 		if ( $this->quiz ) 
 		{
+			$chart_invalidate = 1;
 			if ( $this->quiz['run'] )
 			{
-				$this->question = $this->getQuestion($qid);
-				$form = $this->getComponent('qform');
+				$this->question = $this->getQuestion();
 				
-				if ( $form->isSubmitted() !== TRUE )  // hack ale neviem uz nemam sil
+				if ( $this->question )
 				{
-					if ( $this->question && strtotime($this->question->datetime_start) > time() )
+					$t = strtotime($this->question->datetime_start) - time();
+					if ( $t > 0 )
 					{
-						$t = strtotime($this->question->datetime_start) - time();
 						sleep($t);
-	
 					}
-					elseif ( !$this->question )
-					{
-						if ( $this->quiz['made_questions'] < $this->quiz['questions'] )
-						{
-							// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
-							$src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) LIMIT 1', $this->quiz['id']);
-							// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id = 15');
-	
-							if ( $src_question->count() )
-							{
-								$tmp = $src_question->fetch();
-	
-								try	{
-									dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() + INTERVAL 3 second )', $this->quiz['id'], $tmp->id);
-									$this->question = $this->getQuestion($tmp->id);
 
-									$t = strtotime($this->question->datetime_start) - time();
-									sleep($t);
-	
-								} catch ( Exception $e ) {
-									$this->flashMessage($e->getMessage());
-								}
-							}
-							else
-							{
-								$str = 'Missing questions. Have left ' . ( $this->quiz['questions'] - $this->quiz['made_questions'] ) . ' from ' . $this->quiz['questions'] . ' questions.';
-								$this->flashMessage($str);
-							}
-						}
-						else
-						{
-							$this->flashMessage("Quiz end");
-							$this->invalidateControl('quiz');
-							dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
-							$this->quiz['run'] = 0;
-							$this->quiz['time'] = 0;
-							$this->quiz['datetime_end'] = date("Y-m-d H:i:s", time()); // toto bude mensia odchylka ale snad nikomu nebude vadit predsa
-						}
-					}
-	
-					if ( $this->question )
-					{
-						if ( $this->quiz['made_questions'] < 2 )
+					// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
+					
+					$this->addComponent($this->question, 'qs');
+					$qs  = $this->getComponent('qs');
+					NDebug::firelog($qs->form->isSubmitted());
+					if ( !$qs->form->isSubmitted() ) {
+						if ( $this->quiz['made_questions'] == 1 )
 						{ 
-							// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
-							// zmena z x == 0 na x < 2 
 							$this->invalidateControl('quiz');
 						}
-	
-						$this->addComponent($this->question, 'qs');
-						$qs  = $this->getComponent('qs');
-	
-						if ( !$qs->form->isSubmitted() ) {
-							// nema sa co ked je 0 invalidovat kedze este neexistoval tento snippet
-							if ( $this->quiz['made_questions'] > 0 ) {
-								$qs->invalidateControl('qst');
-							}
-	
-							$question_session->id	  = $this->question->id;
-							$question_session->chints = array();
-							$question_session->cnth   = 0;
-						}
-	
-						$this->template->question = $this->question;
+
+						$qs->invalidateControl('qst');
+						
+						// nema sa co ked je 0 invalidovat kedze este neexistoval tento snippet
+						$question_session = NEnvironment::getSession('question');
+						$question_session->id	  = $this->question->id;
+						$question_session->chints = array();
+						$question_session->cnth   = 0;
 					}
+					else
+					{
+						$chart_invalidate = 0;
+					}
+					
+					
+					$this->template->question = $this->question;
+				}
+				else 
+				{
+					$this->flashMessage("Quiz end");
+					$this->invalidateControl('quiz');
+					// dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
+					$this->quiz['run'] = 0;
+					$this->quiz['time'] = 0;
+					$this->quiz['datetime_end'] = date("Y-m-d H:i:s", time()); // toto bude mensia odchylka ale snad nikomu nebude vadit predsa
+					
+					 // hack ale neviem uz nemam sil
+					$form = $this->getComponent('qform');
 				}
 			}
-			else // kviz este nezacal preto invalidnem cely quiz snippet
-			{	
+			else // kviz este nezacal ( alebo uz skoncil )preto invalidnem cely quiz snippet, 
+			{
 				$this->invalidateControl('quiz');
 				if ( $this->quiz['datetime_end'] )
 				{
@@ -206,18 +222,17 @@ class QuizPresenter extends BasePresenter
 				}
 			}
 			
-			if ( $this->quiz['datetime_end'] )
-			{
-				
-				$this->chart = $this->getComponent('chart');
-				$this->invalidateControl('chart');
-				$this->template->chart = $this->chart;
+			// na zaver naplnim template/ajax storage datami
 
+			$this->chart = $this->getComponent('chart');
+			if ( $chart_invalidate )
+			{
+				NDebug::firelog($chart_invalidate);
+				$this->invalidateControl('chart');
 			}
 
-			// na zaver naplnim template/ajax storage datami
-			
 			$this->template->quiz = $this->quiz;
+			$this->template->chart = $this->chart;
 
 			if ( $this->isAjax() )
 			{
@@ -238,7 +253,7 @@ class QuizPresenter extends BasePresenter
 
 			if ( !$f )
 			{
-				$form = new AppForm($this, 'new');
+				$form = new NAppForm($this, 'new');
 				$form->addText('questions', 'Questions:');
 				$form->addSubmit('create', 'Create');
 				$form->setDefaults(array( 'questions' => 20 ));
@@ -248,7 +263,7 @@ class QuizPresenter extends BasePresenter
 			}
 			else
 			{
-				$form = new AppForm($this, 'start');
+				$form = new NAppForm($this, 'start');
 				$form->setAction($this->link('start', $f['id'] ));
 				$form->setMethod('get');
 				$form->addText('sec', 'Seconds:')->setValue(60);
@@ -261,13 +276,11 @@ class QuizPresenter extends BasePresenter
 		}
 	}
 	
-
 	public function actionEnd ($id)
 	{
 		
 	}
 	
-
 	public function actionAnswer ($id)
 	{
 		
@@ -279,11 +292,9 @@ class QuizPresenter extends BasePresenter
 		$answer = "";
 
 		try {
-		
 			if ( $id )
 			{
-				$question_session = Environment::getSession('question');
-				
+				$question_session = NEnvironment::getSession('question');
 				if ( $id == $question_session->id )
 				{
 					$this->question = $this->getQuestion($id);
@@ -367,9 +378,9 @@ class QuizPresenter extends BasePresenter
 		}
 
 		try {
-			$question_session = Environment::getSession('question');
+			$question_session = NEnvironment::getSession('question');
 			$question_session->cnth++;
-			
+
 			if ( $id && $id == $question_session->id )
 			{
 				$this->question = $this->getQuestion($id);
@@ -511,7 +522,7 @@ class QuizPresenter extends BasePresenter
 			// Debug::dump($src->fetchAll());
 		
 
-		} catch (FormValidationException $e) {
+		} catch (NFormValidationException $e) {
 			$form->addError($e->getMessage());
 		} catch (NullQuestionsException $e) {
 			$form->addError($e->getMessage());
@@ -522,14 +533,14 @@ class QuizPresenter extends BasePresenter
 	{
 		switch ($name) {
 			case 'qform':
-				$form = new AppForm($this->presenter, $name);
-				// $this->addComponent($form, $name);
+				$form = new NAppForm($this->presenter, $name);
 	
 				return;
 
 			case 'chart':
 				$chart = new Chart($this->quiz);
 				$this->addComponent($chart, $name);
+				NDebug::firelog("---");
 
 				return;
 	

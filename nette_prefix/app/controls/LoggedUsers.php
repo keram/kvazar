@@ -1,6 +1,6 @@
 <?php
 
-class LoggedUsers extends Control
+class LoggedUsers extends NControl
 {
 	/** @var bool */
 	public $useAjax = TRUE;
@@ -26,7 +26,7 @@ class LoggedUsers extends Control
 	public function render()
 	{
 		// todo je to zvrhle 
-		$user = Environment::getUser();
+		$user = NEnvironment::getUser();
 		if ( $user->isAuthenticated() ) {
 			$dataSource = $this->dataSource;
 			// render
@@ -36,7 +36,7 @@ class LoggedUsers extends Control
 			$template->useAjax = $this->useAjax;
 	
 			$template->setFile(dirname(__FILE__) . '/LoggedUsers.phtml');
-			$template->registerFilter('Nette\Templates\CurlyBracketsFilter::invoke');
+			$template->registerFilter('Nettep\Templates\NCurlyBracketsFilter::invoke');
 			$template->render();
 		}
 	}
