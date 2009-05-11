@@ -338,7 +338,7 @@ class QuizPresenter extends BasePresenter
 				throw new Exception("Question id not passed");
 			}
 			
-		} catch ( Exception $e ) {
+		} catch ( Exception $e ) { // -t-
 			if ( !$this->isAjax() )
 			{
 				$this->flashMessage($e->getMessage());
