@@ -40,11 +40,11 @@ class QuizPresenter extends BasePresenter
 				$this->system_time 				= strtotime($data->system_time);
 				$this->quiz['datetime_start'] 	= strtotime($data->datetime_start);
 				$this->quiz['datetime_end'] 	= strtotime($data->datetime_end);
-				$this->quiz['id'] = $data->id;
+				$this->quiz['id'] = $data->id * 1;
 				$this->quiz['run'] = ( $this->quiz['datetime_start'] <= $this->system_time ) ? 1 : 0;
 				$this->quiz['time'] = abs($this->quiz['datetime_start'] - $this->system_time);
-				$this->quiz['made_questions'] = $data->made_questions;
-				$this->quiz['questions'] = $data->questions;
+				$this->quiz['made_questions'] = $data->made_questions * 1;
+				$this->quiz['questions'] = $data->questions * 1;
 			}
 			else
 			{
@@ -322,9 +322,16 @@ class QuizPresenter extends BasePresenter
 							$sleep = ($start + $hp * $i) - $this->system_time;
 							sleep($sleep);
 						}
- 						$this->ajax_storage->hint = $this->question->config['hints'][$i];
-						$this->ajax_storage->remaining_num_hints = $this->question->config['num_hints'] - $i - 1;
-
+						if ( $this->question->config['hints'][$i] )
+						{
+							$this->ajax_storage->hint = $this->question->config['hints'][$i];
+							$this->ajax_storage->remaining_num_hints = $this->question->config['num_hints'] - $i - 1;
+						}
+						else
+						{
+							$this->ajax_storage->remaining_num_hints = 0;
+							NDebug::firelog("hints out");
+						}
 					}
 					$question_session->cnth++;
 				}
@@ -338,7 +345,7 @@ class QuizPresenter extends BasePresenter
 				throw new Exception("Question id not passed");
 			}
 			
-		} catch ( Exception $e ) { // -t-
+		} catch ( Exception $e ) { 
 			if ( !$this->isAjax() )
 			{
 				$this->flashMessage($e->getMessage());

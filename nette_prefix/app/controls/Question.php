@@ -92,7 +92,7 @@
 							sleep(1);
 							if ( $cnt < 5 )
 							{
-								$this->getConfig(null, $cnt++)
+								$this->getConfig(null, $cnt++);
 							}
 							else
 							{
