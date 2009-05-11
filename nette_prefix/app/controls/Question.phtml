@@ -1,1 +1,1 @@
-{$form->render('begin')}<div id="question-timer">	{$question->remaining_time}</div>{snippet qst}	{$form->render('errors')}	{$form->render('body')}{/snippet}{$form->render('end')}
+{$form->render('begin')}<div id="question-timer">	{$question['remaining_time']}</div>{snippet qst}	{$form->render('errors')}	{$form->render('body')}	<a href="{plink Quiz:hint, $question['id']}" target="_blank">hint</a>{/snippet}{$form->render('end')}

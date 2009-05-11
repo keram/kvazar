@@ -12,113 +12,218 @@
 		public $useAjax = true;
 		public $id, $title;
 		public $answers, $answers_count, $scope, $response_time, $remaining_time, $datetime_start, $answer_id;
-		public $hints, $type;
+		public $hints, $num_hints, $type;
+		public $config;
 		public $form;
 		public $presenter;
 		
 		#	Constructor
-		function __construct ( $presenter, $src )
+		function __construct ( $presenter, $id = null )
 		{
-			$this->presenter = $presenter;
-			
 			parent::__construct();
-			$this->bindData($src);
-			$this->createForm();
-		}
-		###	
-		
-		public function getType ()
-		{
-			$type = "simple";
-			
-			if ( $this->answers_count > 1 )
+			if ( $presenter )
 			{
-				$type = "multi";
+				$this->presenter = $presenter;
+
+				$this->getConfig($id);
+				$this->createForm();
+			}
+		}
+		###
+	
+		public function getConfig ( $id = null, $cnt = 1 )
+		{
+			$cache = NEnvironment::getCache();
+			if ( isset($cache['question-' . $this->presenter->quiz['made_questions']]) )
+			{
+				$this->config = $cache['question-' . $this->presenter->quiz['made_questions']];
+				$this->config['remaining_time'] = $this->config['response_time'] - ( $this->presenter->system_time - min( $this->presenter->system_time, $this->config['datetime_start']) );
+			}
+			else
+			{
+				if ( $this->presenter->quiz['made_questions'] >= $this->presenter->quiz['questions'] )
+				{
+					return false;
+				}
+ 			
+				try {
+					if ( $id == null )
+					{
+						$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
+								t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
+								t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
+							 FROM `quiz_has_question` AS t1
+								 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
+								 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
+							 WHERE t1.quiz_id = %i AND t1.datetime_start > NOW() - INTERVAL t2.response_time SECOND GROUP BY t3.question_id', $this->presenter->quiz['id']);
+					}
+					else
+					{
+						$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
+								t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
+								t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
+							 FROM `quiz_has_question` AS t1
+								 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
+								 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
+							 WHERE t1.quiz_id = %i AND t2.id = %i GROUP BY t3.question_id', $this->presenter->quiz['id'], $id);
+					}
+	
+					if ( $src_question->count() == 0 && $id == null )
+					{
+						try	{
+							// $src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id  = 1');
+							$src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->presenter->quiz['id']);
+
+							if ( !$src_new_question->count() )
+							{
+								throw new Exception("Question not found");
+							}
+
+							$tmp = $src_new_question->fetch();
+							$tmp_id = $tmp->id;
+							dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `order`) VALUES ( %i, %i, NOW() + INTERVAL 3 second, %i )', $this->presenter->quiz['id'], $tmp_id, $this->presenter->quiz['made_questions']++);
+							$this->getConfig($tmp_id, $cnt++);
+						} catch ( Exception $e ) {
+							if ( $e->getCode() == 1062 )
+							{
+								$this->presenter->quiz['made_questions']++;
+							}
+							
+							sleep(1);
+							if ( $cnt < 5 )
+							{
+								$this->getConfig(null, $cnt++)
+							}
+							else
+							{
+								$this->presenter->flashMessage($e->getMessage());
+							}
+						}
+					}
+					else
+					{
+						$this->bindConfig($src_question);
+					}
+					
+				} catch ( Exception $e ) {
+					$this->presenter->flashMessage($e->getMessage());
+				}
 			}
 			
-			return $type;
+			return false;
 		}
 		
-		public function bindData ($src)
+		public function bindConfig ($src)
 		{
 			$tmp = $src->fetchAll();
 			$data = $tmp[0];
-			$this->id = $data->id;
-			$this->answer_id 	= $data->answer_id;
-			$this->title['sk'] 	= $data->title_sk;
-			$this->title['en'] 	= $data->title_en;
-			$this->response_time = $data->response_time;
-			$now = date("Y-m-d H:i:s", strtotime($this->presenter->system_time));
-			$this->datetime_start = isset($data->datetime_start) ? $data->datetime_start : $now;
-			$this->remaining_time = $this->response_time - ( strtotime($now) - min( strtotime($now), strtotime($this->datetime_start)) );
-			$this->answers_count = $data->answers_count;
-			$this->type = $this->getType();
+			$this->config['id'] = $data->id;
+			$this->config['answer_id'] 		= $data->answer_id;
+			$this->config['title']['sk'] 	= $data->title_sk;
+			$this->config['title']['en'] 	= $data->title_en;
+			$this->config['response_time']	= $data->response_time;
+			$this->config['datetime_start'] = strtotime($data->datetime_start);
+			$this->config['remaining_time'] = $this->config['response_time'] - ( $this->presenter->system_time - min( $this->presenter->system_time, $this->config['datetime_start']) );
+			$this->config['answers_count'] 	= $data->answers_count;
+			$this->config['type'] = "simple";
+			$this->config['hints'] = array();
 			
-			if ( $this->answers_count > 1 )
+			if ( $this->config['answers_count'] > 1 )
 			{
-				$q = dibi::query('SELECT * FROM `answer` WHERE `question_id` = %i ORDER BY RAND()', $this->id);
+				$this->config['type'] = "multi";
+				$q = dibi::query('SELECT * FROM `answer` WHERE `question_id` = %i ORDER BY RAND()', $this->config['id']);
 				if ( $q->count() )
 				{
+					$this->config['num_hints'] = $this->config['answers_count'] - 2;
 					$d = $q->fetchAll();
+					
 					foreach( $d as $k )
 					{
-						$this->answers[] = array('id' => $k['id'], 'value' => $k['value'], 'correct' => $k['correct']);
+						$this->config['answers'][] = array('id' => $k['id'], 'value' => stripslashes($k['value']), 'correct' => $k['correct']);
+						if ( $k['correct'] != 0 &&  count($this->config['hints']) <= $this->config['num_hints'] )
+						{
+							$this->config['hints'][] = $k['id'];
+						}
 					}
 				}
 			}
 			else
 			{
-				$this->answers[] = array('id' => $data['answer_id'], 'value' => stripslashes($data['answer_value']), 'correct' => $data['answer_correct']);
+				$this->config['answers'][] = array('id' => $data['answer_id'], 'value' => stripslashes($data['answer_value']), 'correct' => $data['answer_correct']);
+				$this->config['num_hints'] = ( strlen($this->config['answers'][0]['value']) >= 2 ) ? min(strlen($this->config['answers'][0]['value']), 4) - 1 : 0;
+				
+				$str = $this->config['answers'][0]['value'];
+				$full_str = str_split($str);
+				$expl_str = $full_str;
+				$chars_hint = floor( strlen($str) / ( $this->config['num_hints'] + 1));
+				$visited = array();
+
+				for ( $j=0; $j < $this->config['num_hints']; $j++ )
+				{ 
+					$hint_str = "";
+					if ( is_array($expl_str) && count($expl_str) > $chars_hint )
+					{
+						// vyberiem x prvkov z pola ktore este neboli
+						$rand = array_rand($expl_str, $chars_hint);
+						if ( is_array($rand) )
+						{
+							$new_array = array_merge($rand, $visited);
+						}
+						else
+						{
+							$new_array = array_merge(array($rand), $visited);
+						}
+						
+						for ( $i=0,$c=count($full_str); $i < $c; $i++ )
+						{ 
+							if ( in_array($i, $new_array) )
+							{
+								$hint_str .= $full_str[$i];
+								$visited[] = $i;
+								unset($expl_str[$i]);
+							}
+							else
+							{
+								$hint_str .= "_";
+							}
+						}
+					}
+					$this->config['hints'][] = $hint_str;
+				}
+
 			}
 			
-			$this->hints = $this->getNumberHints();
-			
+			$cache = NEnvironment::getCache();
+			$cache->save('question-' . $this->presenter->quiz['made_questions'], $this->config, array('expire' => time() + $this->config['response_time']));
+
 			if ( $this->presenter->isAjax() )
 			{
 				$ajax_storage = $this->presenter->getAjaxDriver();
-				$ajax_storage->question = array(
-					"id" 	=> $this->id,
-					"remaining_time" => $this->remaining_time,
-					"hints"	=> $this->hints,
-					"type" 	=> $this->type
-				);
+				$ajax_storage->question = $this->config;
+				$ajax_storage->question['hints'] = count($this->config['hints']);
 			}
-		}
-		
-		public function getNumberHints ()
-		{
-			$hints = 0;
-			
-			if ( $this->answers_count > 1 )
-			{
-				$hints = $this->answers_count - 2;
-			}
-			else
-			{
-				$hints = ( strlen($this->answers[0]['value']) >= 2 ) ? min(strlen($this->answers[0]['value']), 4) - 1 : 0;
-			}
-			
-			return $hints;
-		}
 
+			// dibi::query('delete from quiz_has_question where question_id = 1');
+		}
+	
 		public function createForm ()
 		{
 			$form = $this->presenter->getComponent('qform');
-			// $form = new NAppForm($this->presenter, 'qform');
 			$form->renderer->clientScript = NULL;
+
 			$elm = $form->getElementPrototype();
 			$elm->attrs['id'] = 'qform';
-			$title = ( $this->title['sk'] && $this->title['en'] ) ? $this->title['sk'] . ' / ' .  $this->title['en'] : ( ( $this->title['sk'] ) ? $this->title['sk'] : $this->title['en']);
+			$title = ( $this->config['title']['sk'] && $this->config['title']['en'] ) ? $this->config['title']['sk'] . ' / ' .  $this->config['title']['en'] : ( ( $this->config['title']['sk'] ) ? $this->config['title']['sk'] : $this->config['title']['en']);
 			$group = $form->addGroup(stripslashes($title));
 			
 			$user = NEnvironment::getUser();
-			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i ORDER BY `time` DESC LIMIT 1', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id);
+			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i ORDER BY `time` DESC LIMIT 1', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->config['id']);
 			$user_data = $user_data_src->fetch();
 
 			$question_session = NEnvironment::getSession('question');
 			$question_session->submitted = 0;
 			
-			if ( $this->answers_count > 1 )
+			if ( $this->config['answers_count'] > 1 )
 			{
 				if ( $user_data )
 				{
@@ -127,7 +232,7 @@
 				
 				$user_answers = explode(';', $user_data['value']);
 
-				foreach( $this->answers as $answer)
+				foreach( $this->config['answers'] as $answer)
 				{
 					$form->addCheckbox('answer' . $answer['id'], $answer['value'])->getControlPrototype()->value($answer['id']);
 					
@@ -154,7 +259,7 @@
 				}
 			}
 			
-			if ( $this->type == "multi" && $user_data )
+			if ( $this->config['type'] == "multi" && $user_data )
 			{
 				$form->addSubmit('next', 'Wait')->setDisabled();
 			}
@@ -171,17 +276,17 @@
 		{
 			$question_session = NEnvironment::getSession('question');
 			try	{
-				if ( $this->id == $question_session->id && strtotime($this->datetime_start) + $this->response_time >= strtotime($this->presenter->system_time) )
+				if ( $this->config['id'] == $question_session->id && $this->config['datetime_start'] + $this->config['response_time'] >= $this->presenter->system_time )
 				{
 					$user = NEnvironment::getUser();
 					$user_answer = false;
 					$valid = 1;
 					$points = 0;
 					
-					if ( $this->answers_count > 1 )
+					if ( $this->config['answers_count'] > 1 )
 					{
 						// $this->answers[]
-						foreach( $this->answers as $answer )
+						foreach( $this->config['answers'] as $answer )
 						{
 							if ( $form['answer' . $answer['id']]->value || isset($_REQUEST['answer' . $answer['id']]) )
 							{
@@ -212,11 +317,10 @@
 						$user_answer = $form['useranswer']->getValue();
 						// todo toto este otestovat poriadne a do buducna pridat multijazycnost
 						$ustr = NString::webalize($user_answer);
-						$ostr = NString::webalize($this->answers[0]["value"]);
+						$ostr = NString::webalize($this->config['answers'][0]["value"]);
 
 						// if ( $ustr == $ostr || ( strlen($ostr) > 5 && strlen($ustr) == strlen($ostr) && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2) ) 
 						// todo ci nezachovat radsej kiss? ..ano radsej kiss ako komplikovat dotazy do db 
-						NDebug::firelog($ustr == $ostr);
 						if ( $ustr == $ostr ) 
 						{
 							$points = 1;
@@ -226,9 +330,9 @@
 					if ( $user_answer && $valid )
 					{
 						try	{
-							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`, `points`) VALUES ( %i, %i, %i, %s, NOW(), %i )', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id, addslashes($user_answer), $points );
+							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`, `points`) VALUES ( %i, %i, %i, %s, NOW(), %i )', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->config['id'], addslashes($user_answer), $points );
 	
-							if ( $this->type == "multi" )
+							if ( $this->config['type'] == "multi" )
 							{
 								$form->offsetUnset('send');
 								foreach( $form->getControls() as $elm )
@@ -271,7 +375,7 @@
 		{
 
 			$template = $this->createTemplate();
-			$template->question = $this;
+			$template->question = $this->config;
 			$template->form = $this->form;
 			// renderf
 			$template->useAjax = $this->useAjax;

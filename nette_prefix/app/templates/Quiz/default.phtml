@@ -12,6 +12,8 @@
 			</div>
 		{/if}
 
+
+
 		@{if isset($question)}
 	
 			@{$question->render()}
@@ -32,10 +34,10 @@
 	var quiz_config = {
 	{if isset($question)}
 		"question" : {
-			"id" 	: {$question->id},
-			"remaining_time" : {$question->remaining_time},
-			"hints"	: {$question->hints},
-			"type" 	: {$question->type}
+			"id" 	: {$question->config['id']},
+			"remaining_time" : {$question->config['remaining_time']},
+			"num_hints"	: {$question->config['num_hints']},
+			"type" 	: {$question->config['type']}
 		},
 	{/if}
 	{if isset($quiz)}

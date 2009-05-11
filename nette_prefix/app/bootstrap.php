@@ -27,6 +27,8 @@ NEnvironment::setMode(NEnvironment::DEVELOPMENT);
 // NDebug::enable(NDebug::PRODUCTION);
 // NEnvironment::setMode(NEnvironment::PRODUCTION);
 
+// NDebug::timer();
+
 // 2b) load configuration from config.ini file
 NEnvironment::loadConfig();
 
@@ -87,3 +89,5 @@ $router[] = new NRoute('<presenter>/<action>/<id>', array(
 
 // Step 5: Run the application!
 $application->run();
+
+//echo NDebug::timer();
