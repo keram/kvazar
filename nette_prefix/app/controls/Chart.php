@@ -76,7 +76,7 @@
 			$template = $this->createTemplate();
 			$user =  NEnvironment::getUser();
 			$data = $this->initContent();
-			if ( $this->quiz['datetime_end'] )
+			if ( $this->quiz['datetime_end'] && $this->quiz['datetime_end']  != "0000-00-00 00:00:00" )
 			{
 				$winner = $this->getWinner($data);
 				$template->winner = $winner;

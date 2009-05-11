@@ -17,13 +17,14 @@ class QuizPresenter extends BasePresenter
 	public $id, $question, $made_questions, $questions;
 	public $quiz, $chart;
 	public $datetime_start, $datetime_end;
+	public $system_time;
 	
 	public function startup ()
 	{
 		parent::startup();
-		
-		$this->title = title . ' / Quiz';	
-		
+		$this->system_time = time();
+		$this->title = title . ' / Quiz';
+
 		if ( !$this->user->isAuthenticated() ) {
 			$this->flashMessage('Your must been logged.');
 			$this->redirect('User:Login', $this->backlink());
@@ -31,14 +32,15 @@ class QuizPresenter extends BasePresenter
 		else
 		{
 			$db  = dibi::getConnection();
-			$src = $db->dataSource('SELECT t1.*, COUNT(t2.quiz_id) AS `made_questions` FROM quiz AS t1 LEFT JOIN `quiz_has_question` AS t2 ON t1.id = t2.quiz_id WHERE t1.datetime_start IS NOT NULL GROUP BY t1.id ORDER BY t1.id DESC LIMIT 1');
+			$src = $db->dataSource('SELECT NOW() AS `system_time`, t1.*, COUNT(t2.quiz_id) AS `made_questions` FROM quiz AS t1 LEFT JOIN `quiz_has_question` AS t2 ON t1.id = t2.quiz_id WHERE t1.datetime_start != "0000-00-00 00:00:00" AND ( t1.datetime_end IS NULL OR t1.datetime_end = "0000-00-00 00:00:00") GROUP BY t1.id ORDER BY t1.id DESC LIMIT 1');
 			
 			if ( $src->count() )
 			{
 				$data = $src->fetch();
+				$this->system_time = $data->system_time;
 				$this->quiz['id'] = $data->id;
-				$this->quiz['run'] = ( strtotime($data->datetime_start)  < time() && !$data->datetime_end ) ? 1 : 0;
-				$this->quiz['time'] = abs(strtotime($data->datetime_start) - time());
+				$this->quiz['run'] = ( strtotime($data->datetime_start) < strtotime($this->system_time) ) ? 1 : 0;
+				$this->quiz['time'] = abs(strtotime($data->datetime_start) - strtotime($this->system_time));
 				$this->quiz['made_questions'] = $data->made_questions;
 				$this->quiz['questions'] = $data->questions;
 				$this->quiz['datetime_start'] = $data->datetime_start;
@@ -114,7 +116,7 @@ class QuizPresenter extends BasePresenter
 				{
 					try	{
 						// $src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) LIMIT 1', $this->quiz['id']);
-						$src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
+						$src_new_question = dibi::getConnection()->dataSource('SELECT NOW() AS `system_time`, t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->quiz['id']);
 						// $src_question = dibi::getConnection()->dataSource('SELECT t1.id FROM `question` AS t1 WHERE t1.id = 15');
 	
 						if ( !$src_new_question->count() )
@@ -124,8 +126,8 @@ class QuizPresenter extends BasePresenter
 	
 						$tmp = $src_new_question->fetch();
 						$tmp_id = $tmp->id;
-						$cache->save('new_question', $tmp_id, array('expire' => time() + $tmp->response_time));
-						dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() + INTERVAL 2 second )', $this->quiz['id'], $tmp_id);
+						$cache->save('new_question', $tmp_id, array('expire' => strtotime($tmp->system_time) + $tmp->response_time));
+						dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`) VALUES ( %i, %i, NOW() + INTERVAL 3 second )', $this->quiz['id'], $tmp_id);
 					} catch ( Exception $e ) {
 						$tmp_id = null;
 					}
@@ -167,18 +169,21 @@ class QuizPresenter extends BasePresenter
 				
 				if ( $this->question )
 				{
-					$t = strtotime($this->question->datetime_start) - time();
-					if ( $t > 0 )
-					{
-						sleep($t);
-					}
-
-					// kviz prave zacal tak invalidnem cely quiz aby som nahral prvu otazku a dalsi bordel
-					
+					$question_session = NEnvironment::getSession('question');
 					$this->addComponent($this->question, 'qs');
 					$qs  = $this->getComponent('qs');
-					NDebug::firelog($qs->form->isSubmitted());
+
 					if ( !$qs->form->isSubmitted() ) {
+						$t = strtotime($this->question->datetime_start) - strtotime($this->system_time);
+						if ( $t > 0 )
+						{
+							sleep($t);
+						}
+						else
+						{
+							// echo $this->question->datetime_start . "-t-";
+						}
+
 						if ( $this->quiz['made_questions'] == 1 )
 						{ 
 							$this->invalidateControl('quiz');
@@ -187,7 +192,6 @@ class QuizPresenter extends BasePresenter
 						$qs->invalidateControl('qst');
 						
 						// nema sa co ked je 0 invalidovat kedze este neexistoval tento snippet
-						$question_session = NEnvironment::getSession('question');
 						$question_session->id	  = $this->question->id;
 						$question_session->chints = array();
 						$question_session->cnth   = 0;
@@ -195,6 +199,10 @@ class QuizPresenter extends BasePresenter
 					else
 					{
 						$chart_invalidate = 0;
+						if ( $question_session->id != $qs->id )
+						{
+							$this->flashMessage("Question timeout!");
+						}
 					}
 					
 					
@@ -207,7 +215,9 @@ class QuizPresenter extends BasePresenter
 					dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
 					$this->quiz['run'] = 0;
 					$this->quiz['time'] = 0;
-					$this->quiz['datetime_end'] = date("Y-m-d H:i:s", time()); // toto bude mensia odchylka ale snad nikomu nebude vadit predsa
+					$this->quiz['datetime_end'] = date("Y-m-d H:i:s", strtotime($this->system_time)); // toto bude mensia odchylka ale snad nikomu nebude vadit predsa
+					$cache = NEnvironment::getCache();
+					unset($cache['new_question']);
 					
 					 // hack ale neviem uz nemam sil
 					$form = $this->getComponent('qform');
@@ -216,7 +226,7 @@ class QuizPresenter extends BasePresenter
 			else // kviz este nezacal ( alebo uz skoncil )preto invalidnem cely quiz snippet, 
 			{
 				$this->invalidateControl('quiz');
-				if ( $this->quiz['datetime_end'] )
+				if ( $this->quiz['datetime_end'] != "0000-00-00 00:00:00" )
 				{
 					$this->newQuiz();
 				}
@@ -227,7 +237,6 @@ class QuizPresenter extends BasePresenter
 			$this->chart = $this->getComponent('chart');
 			if ( $chart_invalidate )
 			{
-				NDebug::firelog($chart_invalidate);
 				$this->invalidateControl('chart');
 			}
 
@@ -243,12 +252,13 @@ class QuizPresenter extends BasePresenter
 		{
 			$this->newQuiz();
 		}
+
 	}
 	
 	public function newQuiz ()
 	{
 		if ( $this->user->getIdentity()->id == 5 ) {
-			$q = dibi::query('SELECT * FROM quiz WHERE datetime_start IS NULL LIMIT 1');
+			$q = dibi::query('SELECT * FROM quiz WHERE datetime_start IS NULL OR datetime_start = "0000-00-00 00:00:00" LIMIT 1');
 			$f = $q->fetch();
 
 			if ( !$f )
@@ -283,7 +293,6 @@ class QuizPresenter extends BasePresenter
 	
 	public function actionAnswer ($id)
 	{
-		
 		if ( $this->isAjax() )
 		{
 			$ajax_storage = $this->presenter->getAjaxDriver();
@@ -292,6 +301,7 @@ class QuizPresenter extends BasePresenter
 		$answer = "";
 
 		try {
+
 			if ( $id )
 			{
 				$question_session = NEnvironment::getSession('question');
@@ -301,15 +311,15 @@ class QuizPresenter extends BasePresenter
 					
 					if ( $this->question )
 					{
-						$t = strtotime($this->question->datetime_start) + $this->question->response_time - time();
+						$t = strtotime($this->question->datetime_start) + $this->question->response_time - strtotime($this->system_time);
 						
-						if ( $t > 0 )
+						if ( $t > -5 ||  $t > 10 )
 						{
-							sleep($t);
-						}
-						
-						if ( $t > -5 )
-						{
+							if ( $t > 0 )
+							{
+								sleep($t);
+							}
+
 							if ( $this->question->type == "multi" )
 							{
 								$answer = array();
@@ -395,9 +405,9 @@ class QuizPresenter extends BasePresenter
 					$remaining_hints = $hints - $current_hint;
 					
 					$hp = floor($response_time / ($hints + 1));
-					if ( strtotime("now") < $start + ( $hp * $current_hint ) )
+					if ( strtotime($this->system_time) < $start + ( $hp * $current_hint ) )
 					{
-						$sleep =  ( $start + ( $hp * $current_hint ) ) - strtotime("now");
+						$sleep =  ( $start + ( $hp * $current_hint ) ) - strtotime($this->system_time);
 						sleep($sleep);
 					}
 					
@@ -503,7 +513,7 @@ class QuizPresenter extends BasePresenter
 			$questions = $form['questions']->getValue() * 1;
 			
 			$_q_data = array( 
-				'key' 	=> substr(md5(strtotime("now")), 16), 
+				'key' 	=> substr(md5(strtotime($this->system_time)), 16), 
 				'admin' => $this->user->getIdentity()->id, 
 				'datetime_create' => new DibiVariable('NOW()', 'sql'),
 				'questions' =>  $form['questions']->getValue() * 1
@@ -540,7 +550,6 @@ class QuizPresenter extends BasePresenter
 			case 'chart':
 				$chart = new Chart($this->quiz);
 				$this->addComponent($chart, $name);
-				NDebug::firelog("---");
 
 				return;
 	

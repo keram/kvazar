@@ -20,10 +20,10 @@ require LIBS_DIR . '/Nettep/loader.php';
 
 // Step 2: Configure environment a
 // 2a) enable Nette\Debug for better exception and error visualisation
-// NDebug::enable();
+NDebug::enable();
 
- NDebug::enable(NDebug::DEVELOPMENT);
- NEnvironment::setMode(NEnvironment::DEVELOPMENT);
+NDebug::enable(NDebug::DEVELOPMENT);
+NEnvironment::setMode(NEnvironment::DEVELOPMENT);
 // NDebug::enable(NDebug::PRODUCTION);
 // NEnvironment::setMode(NEnvironment::PRODUCTION);
 
@@ -39,7 +39,9 @@ foreach($site as $key=>$val)
 	define($key, $val);
 }
 
+
 // 2c) check if directory /app/temp is writable
+
 if (@file_put_contents(NEnvironment::expand('%tempDir%/_check'), '') === FALSE) {
 	throw new Exception("Make directory '" . NEnvironment::getVariable('tempDir') . "' writable!");
 }

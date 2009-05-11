@@ -48,7 +48,7 @@
 			$this->title['sk'] 	= $data->title_sk;
 			$this->title['en'] 	= $data->title_en;
 			$this->response_time = $data->response_time;
-			$now = date("Y-m-d H:i:s", time());
+			$now = date("Y-m-d H:i:s", strtotime($this->presenter->system_time));
 			$this->datetime_start = isset($data->datetime_start) ? $data->datetime_start : $now;
 			$this->remaining_time = $this->response_time - ( strtotime($now) - min( strtotime($now), strtotime($this->datetime_start)) );
 			$this->answers_count = $data->answers_count;
@@ -109,7 +109,7 @@
 			$elm = $form->getElementPrototype();
 			$elm->attrs['id'] = 'qform';
 			$title = ( $this->title['sk'] && $this->title['en'] ) ? $this->title['sk'] . ' / ' .  $this->title['en'] : ( ( $this->title['sk'] ) ? $this->title['sk'] : $this->title['en']);
-			$group = $form->addGroup($title);
+			$group = $form->addGroup(stripslashes($title));
 			
 			$user = NEnvironment::getUser();
 			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i ORDER BY `time` DESC LIMIT 1', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->id);
@@ -171,7 +171,7 @@
 		{
 			$question_session = NEnvironment::getSession('question');
 			try	{
-				if ( $this->id == $question_session->id && strtotime($this->datetime_start) + $this->response_time >= strtotime("now") )
+				if ( $this->id == $question_session->id && strtotime($this->datetime_start) + $this->response_time >= strtotime($this->presenter->system_time) )
 				{
 					$user = NEnvironment::getUser();
 					$user_answer = false;
@@ -214,9 +214,11 @@
 						$ustr = NString::webalize($user_answer);
 						$ostr = NString::webalize($this->answers[0]["value"]);
 
-						// if ( $ustr == $ostr || ( !is_numeric($ostr) && strlen($ostr) > 5 && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2 )  )
-						if ( $ustr == $ostr || ( strlen($ostr) > 5 && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2 )  )
-						{	 // aby sme zamedzily zbytocnym preklepom a zaroven Dawkins bude niekto iny ako Hawkins
+						// if ( $ustr == $ostr || ( strlen($ostr) > 5 && strlen($ustr) == strlen($ostr) && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2) ) 
+						// todo ci nezachovat radsej kiss? ..ano radsej kiss ako komplikovat dotazy do db 
+						NDebug::firelog($ustr == $ostr);
+						if ( $ustr == $ostr ) 
+						{
 							$points = 1;
 						}
 					}
@@ -260,21 +262,24 @@
 				}
 			// TODO vyhod question exception
 			} catch ( QuestionException $e ) {
-				Debug::dump("nieje tu vynimka nahodou?");
+				NDebug::dump("nieje tu vynimka nahodou?");
 			}
 		}
 		
 		
 		public function render ()
 		{
+
 			$template = $this->createTemplate();
 			$template->question = $this;
 			$template->form = $this->form;
 			// renderf
 			$template->useAjax = $this->useAjax;
-			$template->setFile(dirname(__FILE__) . '/question.phtml');
+			$template->setFile(dirname(__FILE__) . '/Question.phtml');
 			$template->registerFilter('Nettep\Templates\NCurlyBracketsFilter::invoke');
 			$template->render();
+
+			return false;	
 		}
 	}
 	###
