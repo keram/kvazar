@@ -11,9 +11,7 @@
 		#	internal variables
 		public $useAjax = true;
 		public $id, $title;
-		public $answers, $answers_count, $scope, $response_time, $remaining_time, $datetime_start, $answer_id;
-		public $hints, $num_hints, $type;
-		public $config;
+		public $config, $public_config;
 		public $form;
 		public $presenter;
 		
@@ -24,89 +22,75 @@
 			if ( $presenter )
 			{
 				$this->presenter = $presenter;
-
 				$this->getConfig($id);
+				$this->setPublicConfig();
 				$this->createForm();
 			}
 		}
 		###
-	
+		
+		public function setPublicConfig ()
+		{
+			$this->public_config = array( 
+				"id" => $this->config['id'],
+				"remaining_time" => $this->config['remaining_time'],
+				"response_time" => $this->config['response_time'],
+				"datetime_start" => $this->config['datetime_start'],
+				"num_hints"	=> $this->config['num_hints'],
+				"type" 	=> $this->config['type']
+			);
+		}
+		
 		public function getConfig ( $id = null, $cnt = 1 )
 		{
 			$cache = NEnvironment::getCache();
-			if ( isset($cache['question-' . $this->presenter->quiz['made_questions']]) )
+			if ( isset($cache['question-' . $this->presenter->quiz['made_questions']]))
 			{
 				$this->config = $cache['question-' . $this->presenter->quiz['made_questions']];
 				$this->config['remaining_time'] = $this->config['response_time'] - ( $this->presenter->system_time - min( $this->presenter->system_time, $this->config['datetime_start']) );
 			}
-			else
+			elseif ( $id == null )
 			{
-				if ( $this->presenter->quiz['made_questions'] >= $this->presenter->quiz['questions'] )
-				{
-					return false;
-				}
- 			
-				try {
-					if ( $id == null )
+				try	{
+					// $src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id  = 2');
+					dibi::begin();
+					$src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->presenter->quiz['id']);
+					if ( !$src_new_question->count() )
 					{
-						$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
-								t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
-								t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
-							 FROM `quiz_has_question` AS t1
-								 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
-								 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
-							 WHERE t1.quiz_id = %i AND t1.datetime_start > NOW() - INTERVAL t2.response_time SECOND GROUP BY t3.question_id', $this->presenter->quiz['id']);
+						throw new Exception("Question not found");
 					}
-					else
-					{
-						$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
-								t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
-								t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
-							 FROM `quiz_has_question` AS t1
-								 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
-								 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
-							 WHERE t1.quiz_id = %i AND t2.id = %i GROUP BY t3.question_id', $this->presenter->quiz['id'], $id);
-					}
-	
-					if ( $src_question->count() == 0 && $id == null )
-					{
-						try	{
-							// $src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id  = 1');
-							$src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->presenter->quiz['id']);
 
-							if ( !$src_new_question->count() )
-							{
-								throw new Exception("Question not found");
-							}
+					$tmp = $src_new_question->fetch();
 
-							$tmp = $src_new_question->fetch();
-							$tmp_id = $tmp->id;
-							dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `order`) VALUES ( %i, %i, NOW() + INTERVAL 3 second, %i )', $this->presenter->quiz['id'], $tmp_id, $this->presenter->quiz['made_questions']++);
-							$this->getConfig($tmp_id, $cnt++);
-						} catch ( Exception $e ) {
-							if ( $e->getCode() == 1062 )
-							{
-								$this->presenter->quiz['made_questions']++;
-							}
-							
-							sleep(1);
-							if ( $cnt < 5 )
-							{
-								$this->getConfig(null, $cnt++);
-							}
-							else
-							{
-								$this->presenter->flashMessage($e->getMessage());
-							}
-						}
-					}
-					else
-					{
-						$this->bindConfig($src_question);
-					}
-					
+					dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `order`) VALUES ( %i, %i, NOW() + INTERVAL 3 second, %i )', $this->presenter->quiz['id'], $tmp->id, $this->presenter->quiz['made_questions']);
+
+					$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
+						t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
+						t3.id AS `answer_id`, t3.correct AS `answer_correct`, t3.value AS `answer_value`, COUNT(t3.id) AS `answers_count` 
+					 FROM `quiz_has_question` AS t1
+						 LEFT JOIN `question` AS t2 ON t1.question_id = t2.id
+						 LEFT JOIN `answer` AS t3 ON t2.id = t3.question_id
+					 WHERE t1.quiz_id = %i AND t1.question_id = %i GROUP BY t3.question_id', $this->presenter->quiz['id'], $tmp->id);
+
+					$this->bindConfig($src_question);
+					dibi::commit();
 				} catch ( Exception $e ) {
-					$this->presenter->flashMessage($e->getMessage());
+					dibi::rollback();
+					// sleep(1);
+					NDebug::dump($e->getMessage());
+					//if ( $cnt < 5 )
+					//{
+					//	if ( $this->presenter->quiz['made_questions'] == 0 )
+					//	{
+					//		$this->presenter->quiz['made_questions'] = 1;
+					//	}
+					//	
+					//	$this->getConfig(null, $cnt++);
+					//}
+					//else
+					//{
+					//	$this->presenter->flashMessage($e->getMessage());
+					//}
 				}
 			}
 			
@@ -117,7 +101,7 @@
 		{
 			$tmp = $src->fetchAll();
 			$data = $tmp[0];
-			$this->config['id'] = $data->id;
+			$this->config['id'] = $data->id * 1;
 			$this->config['answer_id'] 		= $data->answer_id;
 			$this->config['title']['sk'] 	= $data->title_sk;
 			$this->config['title']['en'] 	= $data->title_en;
@@ -134,13 +118,14 @@
 				$q = dibi::query('SELECT * FROM `answer` WHERE `question_id` = %i ORDER BY RAND()', $this->config['id']);
 				if ( $q->count() )
 				{
+
 					$this->config['num_hints'] = $this->config['answers_count'] - 2;
 					$d = $q->fetchAll();
 					
 					foreach( $d as $k )
 					{
 						$this->config['answers'][] = array('id' => $k['id'], 'value' => stripslashes($k['value']), 'correct' => $k['correct']);
-						if ( $k['correct'] != 0 &&  count($this->config['hints']) <= $this->config['num_hints'] )
+						if ( $k['correct'] == 0 &&  count($this->config['hints']) < $this->config['num_hints'] )
 						{
 							$this->config['hints'][] = $k['id'];
 						}
@@ -150,6 +135,7 @@
 			else
 			{
 				$this->config['answers'][] = array('id' => $data['answer_id'], 'value' => stripslashes($data['answer_value']), 'correct' => $data['answer_correct']);
+
 				$this->config['num_hints'] = ( strlen($this->config['answers'][0]['value']) >= 2 ) ? min(strlen($this->config['answers'][0]['value']), 4) - 1 : 0;
 				
 				$str = $this->config['answers'][0]['value'];
@@ -190,20 +176,12 @@
 					}
 					$this->config['hints'][] = $hint_str;
 				}
-
 			}
 			
 			$cache = NEnvironment::getCache();
-			$cache->save('question-' . $this->presenter->quiz['made_questions'], $this->config, array('expire' => time() + $this->config['response_time']));
 
-			if ( $this->presenter->isAjax() )
-			{
-				$ajax_storage = $this->presenter->getAjaxDriver();
-				$ajax_storage->question = $this->config;
-				$ajax_storage->question['hints'] = count($this->config['hints']);
-			}
-
-			// dibi::query('delete from quiz_has_question where question_id = 1');
+			// + 10 sekund pre odpoved
+			$cache->save('question-' . ( $this->presenter->quiz['made_questions']), $this->config, array('expire' => time() + $this->config['response_time'] + 7));
 		}
 	
 		public function createForm ()
@@ -213,6 +191,7 @@
 
 			$elm = $form->getElementPrototype();
 			$elm->attrs['id'] = 'qform';
+			$elm->attrs['action'] = $this->presenter->link('Quiz:submit');
 			$title = ( $this->config['title']['sk'] && $this->config['title']['en'] ) ? $this->config['title']['sk'] . ' / ' .  $this->config['title']['en'] : ( ( $this->config['title']['sk'] ) ? $this->config['title']['sk'] : $this->config['title']['en']);
 			$group = $form->addGroup(stripslashes($title));
 			
@@ -220,14 +199,14 @@
 			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i ORDER BY `time` DESC LIMIT 1', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->config['id']);
 			$user_data = $user_data_src->fetch();
 
-			$question_session = NEnvironment::getSession('question');
-			$question_session->submitted = 0;
+			$session = NEnvironment::getSession('question');
+			$session->submitted = 0;
 			
 			if ( $this->config['answers_count'] > 1 )
 			{
 				if ( $user_data )
 				{
-					$question_session->submitted = 1;
+					$session->submitted = 1;
 				}
 				
 				$user_answers = explode(';', $user_data['value']);
@@ -274,9 +253,9 @@
 		
 		public function questionFormSubmitted ($form)
 		{
-			$question_session = NEnvironment::getSession('question');
+			$session = NEnvironment::getSession('question');
 			try	{
-				if ( $this->config['id'] == $question_session->id && $this->config['datetime_start'] + $this->config['response_time'] >= $this->presenter->system_time )
+				if ( $this->config['id'] == $session->id && $this->config['datetime_start'] + $this->config['response_time'] >= $this->presenter->system_time )
 				{
 					$user = NEnvironment::getUser();
 					$user_answer = false;
@@ -304,9 +283,9 @@
 						
 						$points = max(0, $points);
 						$user_answer = substr($user_answer, 0, -1);
-						$question_session = NEnvironment::getSession('question');
+						$session = NEnvironment::getSession('question');
 
-						if ( $question_session->submitted == 1 )
+						if ( $session->submitted == 1 )
 						{
 							$form->addError("Answer has been submited");
 							$valid = 0;

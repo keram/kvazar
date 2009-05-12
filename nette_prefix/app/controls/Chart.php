@@ -11,12 +11,13 @@
 		#	internal variables
 		public $useAjax = false;
 		public $quiz, $users, $questions;
-		
+		public $data;
 		
 		#	Constructor
 		function __construct ( $quiz )
 		{
 			$this->quiz = $quiz;
+			$this->data = $this->initContent();
 		}
 		###	
 		
@@ -25,7 +26,6 @@
 		{
 			$q = dibi::query('SELECT t1.*, SUM(t1.points) AS `sum`, t2.nick FROM `user_answer` AS t1 INNER JOIN `user` AS t2 ON t1.user_id = t2.id WHERE `t1.quiz_id` = %i GROUP BY t1.user_id ORDER BY `sum` DESC', $this->quiz['id']);
 			$r = $q->fetchAll();
-
 			
 			return $r;
 		}
@@ -75,15 +75,14 @@
 		{
 			$template = $this->createTemplate();
 			$user =  NEnvironment::getUser();
-			$data = $this->initContent();
 			if ( $this->quiz['datetime_end'] && $this->quiz['datetime_end']  != "0000-00-00 00:00:00" )
 			{
-				$winner = $this->getWinner($data);
+				$winner = $this->getWinner($this->data);
 				$template->winner = $winner;
 			}
 			
 			$template->user = $user;
-			$template->data = $data;
+			$template->data = $this->data;
 			// renderf
 			$template->useAjax = $this->useAjax;
 			$template->setFile(dirname(__FILE__) . '/chart.phtml');

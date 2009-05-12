@@ -20,11 +20,12 @@
 	
 		@{/if}
 	
+		@{if isset($chart)}
+		-t
 		{snippet chart}
-			@{if isset($chart)}
-				@{$chart->render()}
-			@{/if}
+			@{$chart->render()}
 		{/snippet}
+		@{/if}
 
 {/snippet}
 
@@ -33,12 +34,7 @@
 
 	var quiz_config = {
 	{if isset($question)}
-		"question" : {
-			"id" 	: {$question->config['id']},
-			"remaining_time" : {$question->config['remaining_time']},
-			"num_hints"	: {$question->config['num_hints']},
-			"type" 	: {$question->config['type']}
-		},
+		"question" : {$question->public_config},
 	{/if}
 	{if isset($quiz)}
 		"quiz" : {$quiz},

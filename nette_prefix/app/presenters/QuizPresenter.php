@@ -45,6 +45,14 @@ class QuizPresenter extends BasePresenter
 				$this->quiz['time'] = abs($this->quiz['datetime_start'] - $this->system_time);
 				$this->quiz['made_questions'] = $data->made_questions * 1;
 				$this->quiz['questions'] = $data->questions * 1;
+
+				$session = NEnvironment::getSession('question');
+
+				if ( $this->quiz['made_questions'] == 0 )
+				{
+					$session->remove();
+				}
+
 			}
 			else
 			{
@@ -64,69 +72,97 @@ class QuizPresenter extends BasePresenter
 		$this->question = $q;
 	}
 
+	public function actionSubmit ()
+	{
+		$this->getQuestion();
+		$this->redirect('Quiz:');
+	}
+
 	public function actionDefault ()
 	{
 		if ( $this->quiz ) 
 		{
 			$chart_invalidate = 1;
-			if ( $this->quiz['run'] )
+			if ( $this->quiz['run'] == 1 )
 			{
-				$this->getQuestion();
-
-				if ( isset($this->question->config) )
-				{
-					$question_session = NEnvironment::getSession('question');
-					if ( !$this->question->form->isSubmitted() ) {
-						$t = $this->question->config['datetime_start'] - $this->system_time;
-						if ( $t > 0 )
+				// a3 
+				try {
+					$session = NEnvironment::getSession('question');
+					if ( !isset($session->order) ) {
+						$session->order = max($this->quiz['made_questions'], 1);
+					}
+	
+					// a1
+					if ( isset($session->config['datetime_start']) && isset($session->config['response_time'])
+						&& ( $session->config['datetime_start'] + $session->config['response_time'] < $this->system_time ) 
+						)
+					{
+						$session->order = max($session->order + 1, $this->quiz['made_questions']) ;
+					}
+	
+					// a2
+					if ( $session->order > $this->quiz['made_questions'] ) {
+						$this->quiz['made_questions']++;
+					}
+	
+					if ( $this->quiz['made_questions'] >= $this->quiz['questions'] )
+					{
+						if ( $this->quiz['made_questions'] > $this->quiz['questions']  )
 						{
-							sleep($t);
+							$this->quiz['made_questions']--;
+							throw new Exception("Quiz end 1");
 						}
+						
+						$cache = NEnvironment::getCache();
+						$str = 'question-' . $this->quiz['made_questions'];
 
-						if ( $this->quiz['made_questions'] == 1 )
-						{ 
-							$this->invalidateControl('quiz');
-						}
-
-						if ( !isset($question_session->id) || $question_session->id != $this->question->config['id'])
+						if ( isset($cache[$str]) 
+							&& $cache[$str]['id'] == $session->config['id']
+							)
 						{
-							$this->question->invalidateControl('qst');
-							$this->quiz['made_questions']++;
-							$question_session->cnth = 0;
+							throw new Exception("Quiz end");
 						}
+					}
+
+					$this->getQuestion();
+					$t = $this->question->config['datetime_start'] - $this->system_time;
+					if ( $t > 0 )
+					{
+						sleep($t);
+					}
+	
+					if ( $this->quiz['made_questions'] == 1 )
+					{
+						$this->invalidateControl('quiz');
 					}
 					else
 					{
-						$chart_invalidate = 0;
-						if ( $question_session->id != $this->question->config['id'] )
-						{
-							$this->flashMessage("Question timeout!");
-						}
+						$this->question->invalidateControl('qst');
 					}
-					
-					$question_session->id	  = $this->question->config['id'];
+	
+					if ( $this->isAjax() )
+					{
+						$this->ajax_storage->question = $this->question->public_config;
+						// $chart_invalidate = 0;
+					}
+	
 					$this->template->question = $this->question;
-					$this->template->hints	  = count($this->question->config['hints']);
-				}
-				else 
-				{
-					$this->flashMessage("Quiz end");
-					$this->invalidateControl('quiz');
+					$session->config = $this->question->public_config;
+
+				} catch (Exception $e) {
+					$this->flashMessage($e->getMessage());
 //					dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
 					$this->quiz['run'] = 0;
 					$this->quiz['time'] = 0;
+					$this->invalidateControl('quiz');
+					// $this->quiz['datetime_end'] = date("Y-m-d H:i:s", $this->system_time); // toto bude mensia odchylka ale snad nikomu nebude vadit predsa
 					$this->quiz['datetime_end'] = date("Y-m-d H:i:s", $this->system_time); // toto bude mensia odchylka ale snad nikomu nebude vadit predsa
-
-					 // hack ale neviem uz nemam sil
-					$form = $this->getComponent('qform');
+					$this->newQuiz();
 				}
 			}
 			else // kviz este nezacal ( alebo uz skoncil )preto invalidnem cely quiz snippet, 
 			{
-
 				$this->invalidateControl('quiz');
-
-
 				if ( $this->quiz['datetime_end'] != "0000-00-00 00:00:00" )
 				{
 					$this->newQuiz();
@@ -134,26 +170,23 @@ class QuizPresenter extends BasePresenter
 			}
 			
 			// na zaver naplnim template/ajax storage datami
-
 			$this->chart = $this->getComponent('chart');
-			if ( $chart_invalidate )
-			{
+			if ( $chart_invalidate && count($this->chart->data) != 0 ) {
 				$this->invalidateControl('chart');
+				$this->template->chart = $this->chart;
 			}
-
-			$this->template->quiz = $this->quiz;
-			$this->template->chart = $this->chart;
 
 			if ( $this->isAjax() )
 			{
 				$this->ajax_storage->quiz = $this->quiz;
 			}
+			
+			$this->template->quiz = $this->quiz;
 		}
 		else 
 		{
 			$this->newQuiz();
 		}
-
 	}
 
 	public function actionStart ($id, $sec = 60)
@@ -220,8 +253,9 @@ class QuizPresenter extends BasePresenter
 		try {
 			if ( $id )
 			{
-				$question_session = NEnvironment::getSession('question');
-				if ( $id == $question_session->id )
+				$session = NEnvironment::getSession('question');
+
+				if ( $id == $session->config['id'] )
 				{
 					$this->getQuestion($id);
 					
@@ -273,8 +307,7 @@ class QuizPresenter extends BasePresenter
 				}
 				else
 				{
-					NDebug::firelog($question_session->id);
-					throw new Exception("Bad question id");
+					throw new Exception("Bad question id answer");
 				}
 			}
 			else
@@ -293,20 +326,23 @@ class QuizPresenter extends BasePresenter
 		}
 		
 		$this->chart = $this->getComponent('chart');
-		$this->template->chart = $this->chart;
-		$this->invalidateControl('chart');
+		if ( count($this->chart->data) != 0 )
+		{
+			$this->template->chart = $this->chart;
+			$this->invalidateControl('chart');
+		}
 	}
 
 	public function actionHint ($id)
 	{
 		try {
-			$question_session = NEnvironment::getSession('question');
+			$session = NEnvironment::getSession('question');
 
-			if ( $id && $id == $question_session->id )
+			if ( $id && $id == $session->config['id'] )
 			{
 				$this->getQuestion($id);
 				
-				if ( $this->question && $question_session->cnth <= count($this->question->config['hints']) )
+				if ( $this->question && $session->cnth <= $this->question->config['num_hints'] )
 				{
 					$start 	= $this->question->config['datetime_start'];
 					$remaining_time = $this->question->config['remaining_time'];
@@ -314,26 +350,25 @@ class QuizPresenter extends BasePresenter
 					$hp = floor($response_time / ($this->question->config['num_hints'] + 1));
 					$range 	= range(0, $response_time, $hp);
 					$ch	= $this->system_time - $start;
-					$i = $question_session->cnth;
+					$i = $session->cnth++;
 					if ( $this->isAjax() )
 					{
-						if ( $this->system_time < $start + ( $hp * $i ) )
+						if ( $this->system_time < $start + ( $hp * $session->cnth ) )
 						{
-							$sleep = ($start + $hp * $i) - $this->system_time;
+							$sleep = ($start + $hp * $session->cnth) - $this->system_time;
 							sleep($sleep);
 						}
-						if ( $this->question->config['hints'][$i] )
+
+						if ( isset($this->question->config['hints'][$i]) )
 						{
 							$this->ajax_storage->hint = $this->question->config['hints'][$i];
-							$this->ajax_storage->remaining_num_hints = $this->question->config['num_hints'] - $i - 1;
+							$this->ajax_storage->remaining_num_hints = $this->question->config['num_hints'] - $session->cnth;
 						}
 						else
 						{
 							$this->ajax_storage->remaining_num_hints = 0;
-							NDebug::firelog("hints out");
 						}
 					}
-					$question_session->cnth++;
 				}
 				else
 				{
@@ -342,7 +377,7 @@ class QuizPresenter extends BasePresenter
 			}
 			else
 			{
-				throw new Exception("Question id not passed");
+				throw new Exception("Question id not passed - hint");
 			}
 			
 		} catch ( Exception $e ) { 
