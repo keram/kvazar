@@ -10,21 +10,28 @@
 	{
 		#	internal variables
 		public $useAjax = true;
-		public $id, $title;
+		public $id;
 		public $config, $public_config;
 		public $form;
 		public $presenter;
 		
 		#	Constructor
-		function __construct ( $presenter, $id = null )
+		function __construct ( $presenter, $id = null)
 		{
 			parent::__construct();
+			
+			$this->id = $id;
+			
 			if ( $presenter )
 			{
 				$this->presenter = $presenter;
 				$this->getConfig($id);
-				$this->setPublicConfig();
-				$this->createForm();
+				
+				if ( isset($this->config) )
+				{
+					$this->setPublicConfig();
+					$this->createForm();
+				}
 			}
 		}
 		###
@@ -33,6 +40,7 @@
 		{
 			$this->public_config = array( 
 				"id" => $this->config['id'],
+				"order" => $this->config['order'],
 				"remaining_time" => $this->config['remaining_time'],
 				"response_time" => $this->config['response_time'],
 				"datetime_start" => $this->config['datetime_start'],
@@ -41,28 +49,39 @@
 			);
 		}
 		
-		public function getConfig ( $id = null, $cnt = 1 )
+		public function getConfig ( $id = null )
 		{
 			$cache = NEnvironment::getCache();
-			if ( isset($cache['question-' . $this->presenter->quiz['made_questions']]))
+			$title = "question-" . (( $id == null ) ? $this->presenter->quiz['made_questions'] : $id);
+
+			if ( isset($cache[$title]) )
 			{
-				$this->config = $cache['question-' . $this->presenter->quiz['made_questions']];
-				$this->config['remaining_time'] = $this->config['response_time'] - ( $this->presenter->system_time - min( $this->presenter->system_time, $this->config['datetime_start']) );
+				$this->config = $cache[$title];
+				// $this->config['remaining_time'] = $this->config['response_time'] - ( $this->presenter->system_time - min( $this->presenter->system_time, $this->config['datetime_start']) );
+				$this->config['remaining_time'] = $this->config['response_time'] - ( $this->presenter->system_time - $this->config['datetime_start']);
 			}
-			elseif ( $id == null )
+			elseif ( $id != null ) 
+			{
+				return false;
+			}
+			else
 			{
 				try	{
 					// $src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id  = 2');
 					dibi::begin();
+					
 					$src_new_question = dibi::getConnection()->dataSource('SELECT t1.id, t1.response_time FROM `question` AS t1 WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE `quiz_id` = %i ) ORDER BY RAND() ASC LIMIT 1', $this->presenter->quiz['id']);
+
 					if ( !$src_new_question->count() )
 					{
 						throw new Exception("Question not found");
 					}
+					
 
 					$tmp = $src_new_question->fetch();
 
-					dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `order`) VALUES ( %i, %i, NOW() + INTERVAL 1 second, %i )', $this->presenter->quiz['id'], $tmp->id, $this->presenter->quiz['made_questions']);
+					dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `order`) VALUES ( %i, %i, NOW() + INTERVAL 3 second, %i )', $this->presenter->quiz['id'], $tmp->id, $this->presenter->quiz['made_questions']);
+					// dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `order`) VALUES ( %i, %i, NOW(), %i )', $this->presenter->quiz['id'], $tmp->id, $this->presenter->quiz['made_questions']);
 
 					$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
 						t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
@@ -76,21 +95,11 @@
 					dibi::commit();
 				} catch ( Exception $e ) {
 					dibi::rollback();
-					// sleep(1);
-					NDebug::dump($e->getMessage());
-					//if ( $cnt < 5 )
-					//{
-					//	if ( $this->presenter->quiz['made_questions'] == 0 )
-					//	{
-					//		$this->presenter->quiz['made_questions'] = 1;
-					//	}
-					//	
-					//	$this->getConfig(null, $cnt++);
-					//}
-					//else
-					//{
-					//	$this->presenter->flashMessage($e->getMessage());
-					//}
+					if ( $this->presenter->quiz['made_questions'] == 0 || $this->presenter->quiz['made_questions'] >= $session->config['order'] )
+					{
+						sleep(2);
+						getConfig($this->presenter->quiz['made_questions']);
+					}
 				}
 			}
 			
@@ -110,6 +119,7 @@
 			$this->config['remaining_time'] = $this->config['response_time'] - ( $this->presenter->system_time - min( $this->presenter->system_time, $this->config['datetime_start']) );
 			$this->config['answers_count'] 	= $data->answers_count;
 			$this->config['type'] = "simple";
+			$this->config['order'] = $this->presenter->quiz['made_questions'];
 			$this->config['hints'] = array();
 			
 			if ( $this->config['answers_count'] > 1 )
@@ -181,7 +191,7 @@
 			$cache = NEnvironment::getCache();
 
 			// + 10 sekund pre odpoved
-			$cache->save('question-' . ( $this->presenter->quiz['made_questions']), $this->config, array('expire' => time() + $this->config['response_time'] + 5));
+			$cache->save('question-' . ( $this->presenter->quiz['made_questions']), $this->config, array('expire' => time() + $this->config['response_time'] + 10));
 		}
 	
 		public function createForm ()

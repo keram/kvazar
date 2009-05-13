@@ -25,3 +25,4 @@ Options -Indexes
 </IfModule>
 
 php_value date.timezone Europe/Prague
+php_value max_execution_time 30
