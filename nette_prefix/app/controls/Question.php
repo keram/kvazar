@@ -62,7 +62,7 @@
 
 					$tmp = $src_new_question->fetch();
 
-					dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `order`) VALUES ( %i, %i, NOW() + INTERVAL 3 second, %i )', $this->presenter->quiz['id'], $tmp->id, $this->presenter->quiz['made_questions']);
+					dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `order`) VALUES ( %i, %i, NOW() + INTERVAL 1 second, %i )', $this->presenter->quiz['id'], $tmp->id, $this->presenter->quiz['made_questions']);
 
 					$src_question = dibi::getConnection()->dataSource('SELECT t1.question_id AS `id`, t1.datetime_start, 
 						t2.id AS `question_id`, t2.title_sk, t2.title_en, t2.response_time, 
@@ -181,7 +181,7 @@
 			$cache = NEnvironment::getCache();
 
 			// + 10 sekund pre odpoved
-			$cache->save('question-' . ( $this->presenter->quiz['made_questions']), $this->config, array('expire' => time() + $this->config['response_time'] + 7));
+			$cache->save('question-' . ( $this->presenter->quiz['made_questions']), $this->config, array('expire' => time() + $this->config['response_time'] + 5));
 		}
 	
 		public function createForm ()

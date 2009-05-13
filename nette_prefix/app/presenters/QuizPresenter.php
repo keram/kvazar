@@ -80,6 +80,7 @@ class QuizPresenter extends BasePresenter
 
 	public function actionDefault ()
 	{
+		NDebug::firelog(ini_get("max_execution_time"));
 		if ( $this->quiz ) 
 		{
 			$chart_invalidate = 1;
@@ -147,6 +148,11 @@ class QuizPresenter extends BasePresenter
 					}
 	
 					$this->template->question = $this->question;
+					if ( !isset($session->visited_hints) || $session->config['id'] != $this->question->public_config['id'])
+					{
+						$session->visited_hints = 0;
+					}
+					
 					$session->config = $this->question->public_config;
 
 				} catch (Exception $e) {
@@ -248,148 +254,148 @@ class QuizPresenter extends BasePresenter
 	
 	public function actionAnswer ($id)
 	{
-		$answer = "";
-
-		try {
-			if ( $id )
-			{
-				$session = NEnvironment::getSession('question');
-
-				if ( $id == $session->config['id'] )
+		if ( $this->isAjax() )
+		{
+	
+			$answer = "";
+	
+			try {
+				if ( $id )
 				{
-					$this->getQuestion($id);
-					
-					if ( $this->question )
+					$session = NEnvironment::getSession('question');
+	
+					if ( $id == $session->config['id'] )
 					{
-						$t = $this->question->config['datetime_start'] + $this->question->config['response_time'] - $this->system_time;
-						
-						if ( $t > -5 ||  $t > 10 )
+						$this->getQuestion($id);
+	
+						if ( $this->question )
 						{
-							if ( $t > 0 )
+							$t = $this->question->config['datetime_start'] + $this->question->config['response_time'] - $this->system_time;
+	
+							if ( $t > -5 ||  $t > 10 )
 							{
-								sleep($t);
-							}
-							
-							if ( $this->question->config['type'] == "multi" )
-							{
-								$answer = array();
-								// TODO zistit ako efektivnejsie vyfiltrovat hodnoty z pola podla kluca
-								foreach( $this->question->config['answers'] as $ans )
+								if ( $t > 0 )
 								{
-									if ( $ans['correct'] )
+									sleep($t);
+								}
+	
+								if ( $this->question->config['type'] == "multi" )
+								{
+									$answer = array();
+									// TODO zistit ako efektivnejsie vyfiltrovat hodnoty z pola podla kluca
+									foreach( $this->question->config['answers'] as $ans )
 									{
-										$answer[] = $ans["id"];
+										if ( $ans['correct'] )
+										{
+											$answer[] = $ans["id"];
+										}
 									}
 								}
+								else
+								{
+									$answer = $this->question->config['answers'][0]["value"];
+								}
+	
+								$this->ajax_storage->answer = $answer;
+								$this->template->question = $this->question->config;
+								$this->template->answer = $answer;
 							}
 							else
 							{
-								$answer = $this->question->config['answers'][0]["value"];
+								throw new Exception("Question time out.");
 							}
-
-							if ( $this->isAjax() )
-							{
-								$this->ajax_storage->answer = $answer;
-							}
-							
-							$this->template->question = $this->question->config;
-							$this->template->answer = $answer;
 						}
 						else
 						{
-							throw new Exception("Question time out.");
+							throw new Exception("Question not found.");
 						}
 					}
 					else
 					{
-						throw new Exception("Question not found.");
+						throw new Exception("Bad question id answer");
 					}
 				}
 				else
 				{
-					throw new Exception("Bad question id answer");
+					throw new Exception("Question id not passed");
 				}
-			}
-			else
-			{
-				throw new Exception("Question id not passed");
-			}
-		} catch ( Exception $e ) {
-			if ( !$this->isAjax() )
-			{
-				$this->flashMessage($e->getMessage());
-			}
-			else
-			{
+			} catch ( Exception $e ) {
 				$this->ajax_storage->error = $e->getMessage();
 			}
+	
+			$this->chart = $this->getComponent('chart');
+			if ( count($this->chart->data) != 0 )
+			{
+				$this->template->chart = $this->chart;
+				$this->invalidateControl('chart');
+			}
 		}
-		
-		$this->chart = $this->getComponent('chart');
-		if ( count($this->chart->data) != 0 )
+		else
 		{
-			$this->template->chart = $this->chart;
-			$this->invalidateControl('chart');
+			$this->redirect("Quiz:");
 		}
 	}
 
 	public function actionHint ($id)
 	{
-		try {
-			$session = NEnvironment::getSession('question');
+		if ( $this->isAjax() )
+		{
+			try {
+				$session = NEnvironment::getSession('question');
 
-			if ( $id && $id == $session->config['id'] )
-			{
-				$this->getQuestion($id);
-				
-				if ( $this->question && $session->cnth <= $this->question->config['num_hints'] )
+				if ( $id && $id == $session->config['id'] )
 				{
-					$start 	= $this->question->config['datetime_start'];
-					$remaining_time = $this->question->config['remaining_time'];
-					$response_time = $this->question->config['response_time'];
-					$hp = floor($response_time / ($this->question->config['num_hints'] + 1));
-					$range 	= range(0, $response_time, $hp);
-					$ch	= $this->system_time - $start;
-					$i = $session->cnth++;
-					if ( $this->isAjax() )
+
+					$this->getQuestion($id);
+
+					if ( $this->question && $session->visited_hints < $this->question->config['num_hints'] )
 					{
-						if ( $this->system_time < $start + ( $hp * $session->cnth ) )
+	
+						$start 	= $this->question->config['datetime_start'];
+						$remaining_time = $this->question->config['remaining_time'];
+						$response_time = $this->question->config['response_time'];
+						$hp = floor($response_time / ($this->question->config['num_hints'] + 1));
+						$range 	= range(0, $response_time, $hp);
+						$ch	= $this->system_time - $start;
+						$i = $session->visited_hints++;
+
+						if ( $this->system_time < $start + ( $hp * $session->visited_hints ) )
 						{
-							$sleep = ($start + $hp * $session->cnth) - $this->system_time;
+							$sleep = ($start + $hp * $session->visited_hints) - $this->system_time;
+							NDebug::firelog("sleeep hint");
 							sleep($sleep);
 						}
 
-						if ( isset($this->question->config['hints'][$i]) )
-						{
-							$this->ajax_storage->hint = $this->question->config['hints'][$i];
-							$this->ajax_storage->remaining_num_hints = $this->question->config['num_hints'] - $session->cnth;
-						}
-						else
-						{
-							$this->ajax_storage->remaining_num_hints = 0;
-						}
+						$this->ajax_storage->hint = $this->question->config['hints'][$i];
+						$this->ajax_storage->remaining_num_hints = $this->question->config['num_hints'] - $session->visited_hints;
+						NDebug::firelog("a : " . $this->question->config['hints'][$i]);
+						NDebug::firelog("a : " . ( $this->question->config['num_hints'] - $session->visited_hints));
+					}
+					else
+					{
+						throw new Exception("Unknown error program - ");
 					}
 				}
 				else
 				{
-					throw new Exception("Bad question id");
+					throw new Exception("Question id not passed - hint");
 				}
+	
+			} catch ( Exception $e ) { 
+				if ( !$this->isAjax() )
+				{
+					$this->flashMessage($e->getMessage());
+				}
+				else
+				{
+					$this->ajax_storage->error = $e->getMessage();
+				}
+	
 			}
-			else
-			{
-				throw new Exception("Question id not passed - hint");
-			}
-			
-		} catch ( Exception $e ) { 
-			if ( !$this->isAjax() )
-			{
-				$this->flashMessage($e->getMessage());
-			}
-			else
-			{
-				$this->ajax_storage->error = $e->getMessage();
-			}
-			
+		}
+		else
+		{
+			$this->redirect("Quiz:");
 		}
 	}
 
