@@ -45,6 +45,10 @@ class QuizPresenter extends BasePresenter
 				$this->quiz['time'] = abs($this->quiz['datetime_start'] - $this->system_time);
 				$this->quiz['made_questions'] = $data->made_questions * 1;
 				$this->quiz['questions'] = $data->questions * 1;
+				if ( $this->quiz['made_questions'] > $this->quiz['questions'] )
+				{
+					$this->quiz['run'] = 0;
+				}
 
 			}
 			else
@@ -59,25 +63,6 @@ class QuizPresenter extends BasePresenter
 		}
 	}
 	
-	public function actionSubmit ($id)
-	{
-		
-		if ( $id && $id == $this->quiz['made_questions'] )
-		{
-			$this->question = new Question($this, $id);
-			if ( $this->question && isset($this->question->config) )
-			{
-				$this->addComponent($this->question, 'qs');
-			}
-			else
-			{
-				$tmp_f = $this->getComponent('qform');
-			}
-		}
-		
-		$this->redirect('Quiz:');
-	}
-
 	public function actionDefault ()
 	{
 		if ( $this->quiz ) 
@@ -88,8 +73,6 @@ class QuizPresenter extends BasePresenter
 				try {
 
 					$session = NEnvironment::getSession('question');
-
-
 
 					if ( ( $this->presenter->quiz['made_questions'] == 0 )
 						 || (isset($session->config) && $this->quiz['made_questions'] != $this->quiz['questions'] && ( $session->config['datetime_start'] + $session->config['response_time'] <= $this->system_time ))
@@ -110,41 +93,49 @@ class QuizPresenter extends BasePresenter
 					{
 						$session = NEnvironment::getSession('question');
 						$this->addComponent($this->question, 'qs');
-
-						if ( $this->question->config['order'] > $this->quiz['made_questions'] ) {
-							$this->quiz['made_questions']++;
-						}
 						
-						$t = $this->question->config['datetime_start'] - ( $this->system_time + 1);
-
-						if ( $t > 0 )
+						if ( !$this->question->form->isSubmitted() )
 						{
-							sleep($t);
-						}
+							if ( $this->question->config['order'] > $this->quiz['made_questions'] ) {
+								$this->quiz['made_questions']++;
+							}
 	
-						if ( $this->quiz['made_questions'] == 1 )
-						{
-							$this->invalidateControl('quiz');
+							$t = $this->question->config['datetime_start'] - ( $this->system_time + 1);
+	
+							if ( $t > 0 )
+							{
+								sleep($t);
+							}
+	
+							if ( $this->quiz['made_questions'] == 1 )
+							{
+								$this->invalidateControl('quiz');
+							}
+							else
+							{
+								$this->question->invalidateControl('qst');
+							}
+	
+							if ( $this->isAjax() )
+							{
+								$this->ajax_storage->question = $this->question->public_config;
+								// $chart_invalidate = 0;
+							}
+	
+							if ( !isset($session->visited_hints) || $session->config['id'] != $this->question->public_config['id'])
+							{
+								$session->visited_hints = 0;
+							}
+	
+							$session->config = $this->question->public_config;
+							$session->setExpiration($this->question->config['response_time'] + 10);
 						}
 						else
 						{
 							$this->question->invalidateControl('qst');
 						}
-	
-						if ( $this->isAjax() )
-						{
-							$this->ajax_storage->question = $this->question->public_config;
-							// $chart_invalidate = 0;
-						}
-	
+
 						$this->template->question = $this->question;
-						if ( !isset($session->visited_hints) || $session->config['id'] != $this->question->public_config['id'])
-						{
-							$session->visited_hints = 0;
-						}
-	
-						$session->config = $this->question->public_config;
-						$session->setExpiration($this->question->config['response_time'] + 10);
 					}
 				} catch (Exception $e) {
 					$this->flashMessage($e->getMessage());

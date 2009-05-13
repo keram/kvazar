@@ -77,7 +77,6 @@
 						throw new Exception("Question not found");
 					}
 					
-
 					$tmp = $src_new_question->fetch();
 
 					dibi::query('INSERT INTO `quiz_has_question` (`quiz_id`, `question_id`, `datetime_start`, `order`) VALUES ( %i, %i, NOW() + INTERVAL 3 second, %i )', $this->presenter->quiz['id'], $tmp->id, $this->presenter->quiz['made_questions']);
@@ -95,6 +94,7 @@
 					dibi::commit();
 				} catch ( Exception $e ) {
 					dibi::rollback();
+					$session = NEnvironment::getSession('question');
 					if ( $this->presenter->quiz['made_questions'] == 0 || $this->presenter->quiz['made_questions'] >= $session->config['order'] )
 					{
 						sleep(2);
@@ -201,24 +201,17 @@
 
 			$elm = $form->getElementPrototype();
 			$elm->attrs['id'] = 'qform';
-			$elm->attrs['action'] = $this->presenter->link('Quiz:submit');
+			
 			$title = ( $this->config['title']['sk'] && $this->config['title']['en'] ) ? $this->config['title']['sk'] . ' / ' .  $this->config['title']['en'] : ( ( $this->config['title']['sk'] ) ? $this->config['title']['sk'] : $this->config['title']['en']);
 			$group = $form->addGroup(stripslashes($title));
 			
+			$submitted = 0;
 			$user = NEnvironment::getUser();
 			$user_data_src = dibi::query('SELECT * FROM user_answer WHERE `user_id` = %i AND `quiz_id` = %i AND `question_id` = %i ORDER BY `time` DESC LIMIT 1', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->config['id']);
 			$user_data = $user_data_src->fetch();
 
-			$session = NEnvironment::getSession('question');
-			$session->submitted = 0;
-			
 			if ( $this->config['answers_count'] > 1 )
 			{
-				if ( $user_data )
-				{
-					$session->submitted = 1;
-				}
-				
 				$user_answers = explode(';', $user_data['value']);
 
 				foreach( $this->config['answers'] as $answer)
@@ -226,8 +219,10 @@
 					$form->addCheckbox('answer' . $answer['id'], $answer['value'])->getControlPrototype()->value($answer['id']);
 					
 					$group->add($form['answer' . $answer['id']]);
+					
 					if ( $user_data )
 					{
+						$submitted = 1;
 						$form['answer' . $answer['id']]->setDisabled();
 						if ( in_array($answer['id'], $user_answers) )
 						{
@@ -241,7 +236,8 @@
 				$form->addText('useranswer', "User answer")->addRule(NForm::FILLED, 'Not filled answer.');
 				$form->addText('answer', "");
 				$group->add($form['useranswer']);
-
+				$form['useranswer']->getControlPrototype()->autocomplete("off");
+				// $form['useranswer']->attrs["autocomplete"] = "disabled";
 				if ( $user_data )
 				{
 					$form['useranswer']->setValue(stripslashes($user_data->value));
@@ -256,7 +252,7 @@
 			{
 				$form->addSubmit('send', 'Send');
 			}
-
+			
 			$form->onSubmit[] = array($this, 'questionFormSubmitted');
 			$this->form = $form;
 		}
@@ -265,93 +261,85 @@
 		{
 			$session = NEnvironment::getSession('question');
 			try	{
-				if ( $this->config['id'] == $session->id && $this->config['datetime_start'] + $this->config['response_time'] >= $this->presenter->system_time )
+				$user = NEnvironment::getUser();
+				$user_answer = false;
+				$valid = 1;
+				$points = 0;
+					
+				if ( $this->config['answers_count'] > 1 )
 				{
-					$user = NEnvironment::getUser();
-					$user_answer = false;
-					$valid = 1;
-					$points = 0;
-					
-					if ( $this->config['answers_count'] > 1 )
+					// $this->answers[]
+					foreach( $this->config['answers'] as $answer )
 					{
-						// $this->answers[]
-						foreach( $this->config['answers'] as $answer )
+						if ( $form['answer' . $answer['id']]->value || isset($_REQUEST['answer' . $answer['id']]) )
 						{
-							if ( $form['answer' . $answer['id']]->value || isset($_REQUEST['answer' . $answer['id']]) )
+							$user_answer .= $answer['id'] . ';';
+							if ( $answer['correct'] )
 							{
-								$user_answer .= $answer['id'] . ';';
-								if ( $answer['correct'] )
-								{
-									$points++;
-								}
-								else
-								{
-									$points--;
-								}
-							}
-						}
-						
-						$points = max(0, $points);
-						$user_answer = substr($user_answer, 0, -1);
-						$session = NEnvironment::getSession('question');
-
-						if ( $session->submitted == 1 )
-						{
-							$form->addError("Answer has been submited");
-							$valid = 0;
-						}
-					}
-					elseif ( $form['useranswer'] != "" )
-					{
-						$user_answer = $form['useranswer']->getValue();
-						// todo toto este otestovat poriadne a do buducna pridat multijazycnost
-						$ustr = NString::webalize($user_answer);
-						$ostr = NString::webalize($this->config['answers'][0]["value"]);
-
-						// if ( $ustr == $ostr || ( strlen($ostr) > 5 && strlen($ustr) == strlen($ostr) && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2) ) 
-						// todo ci nezachovat radsej kiss? ..ano radsej kiss ako komplikovat dotazy do db 
-						if ( $ustr == $ostr ) 
-						{
-							$points = 1;
-						}
-					}
-					
-					if ( $user_answer && $valid )
-					{
-						try	{
-							dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`, `points`) VALUES ( %i, %i, %i, %s, NOW(), %i )', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->config['id'], addslashes($user_answer), $points );
-	
-							if ( $this->config['type'] == "multi" )
-							{
-								$form->offsetUnset('send');
-								foreach( $form->getControls() as $elm )
-								{
-									$elm->setDisabled();
-								}
-	
-								$form->addSubmit('next', 'Wait')->setDisabled();
-							}
-
-						} catch (DibiDriverException $e) {
-							if ( $e->getCode() == 1062 )
-							{
-								$form->addError("Answer has been submitted");
+								$points++;
 							}
 							else
 							{
-								$form->addError($e->getMessage());
+								$points--;
 							}
-						} 
+						}
 					}
 
-					if ( !$this->presenter->isAjax() )
+					$points = max(0, $points);
+					$user_answer = substr($user_answer, 0, -1);
+					$session = NEnvironment::getSession('question');
+
+					if ( $session->submitted == 1 )
 					{
-						$this->presenter->redirect('Quiz:');
+						$form->addError("Answer has been submited");
+						$valid = 0;
 					}
 				}
-				else
+				elseif ( $form['useranswer'] != "" )
 				{
-					$form->addError("Bad question or time is out.");
+					$user_answer = $form['useranswer']->getValue();
+					// todo toto este otestovat poriadne a do buducna pridat multijazycnost
+					$ustr = NString::webalize($user_answer);
+					$ostr = NString::webalize($this->config['answers'][0]["value"]);
+
+					// if ( $ustr == $ostr || ( strlen($ostr) > 5 && strlen($ustr) == strlen($ostr) && $ustr[0] == $ostr[0] && levenshtein($ustr, $ostr) < 2) ) 
+					// todo ci nezachovat radsej kiss? ..ano radsej kiss ako komplikovat dotazy do db 
+					if ( $ustr === $ostr ) 
+					{
+						$points = 1;
+					}
+				}
+
+				if ( $user_answer && $valid )
+				{
+					try	{
+						dibi::query('INSERT INTO `user_answer` (`user_id`, `quiz_id`, `question_id`, `value`, `time`, `points`) VALUES ( %i, %i, %i, %s, NOW(), %i )', $user->getIdentity()->id, $this->presenter->quiz['id'], $this->config['id'], addslashes($user_answer), $points );
+
+						if ( $this->config['type'] == "multi" )
+						{
+							$form->offsetUnset('send');
+							foreach( $form->getControls() as $elm )
+							{
+								$elm->setDisabled();
+							}
+
+							$form->addSubmit('next', 'Wait')->setDisabled();
+						}
+					} catch (DibiDriverException $e) {
+						if ( $e->getCode() == 1062 )
+						{
+							$form->addError("Answer has been submitted");
+						}
+						else
+						{
+							$form->addError($e->getMessage());
+						}
+					} 
+				}
+
+				if ( !$this->presenter->isAjax() )
+				{
+					$this->presenter->redirect('Quiz:');
 				}
 			// TODO vyhod question exception
 			} catch ( QuestionException $e ) {
