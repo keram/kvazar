@@ -24,7 +24,7 @@
 		
 		public function initContent ()
 		{
-			$q = dibi::query('SELECT t1.*, SUM(t1.points) AS `sum`, t2.nick FROM `user_answer` AS t1 INNER JOIN `user` AS t2 ON t1.user_id = t2.id WHERE `t1.quiz_id` = %i GROUP BY t1.user_id ORDER BY `sum` DESC', $this->quiz['id']);
+			$q = dibi::query('SELECT t1.user_id, t1.quiz_id, SUM(t1.max_points) AS `max_points`, t3.nick FROM (SELECT t2.user_id, t2.question_id, MAX(points) AS max_points, t2.quiz_id FROM user_answer t2 WHERE t2.quiz_id = %i GROUP BY user_id, question_id ORDER BY time ) AS t1 INNER JOIN `user` AS t3 ON t1.user_id = t3.id GROUP BY t1.user_id ORDER BY max_points DESC', $this->quiz['id']);
 			$r = $q->fetchAll();
 			
 			return $r;
@@ -32,38 +32,14 @@
 
 		public function getWinner($data)
 		{
-			$array = array();
 			$winner = null; 
 	
 			if ( count($data) != 0  ) 
 			{
-				$prev = $data[0]['sum'];
-				if ( $prev != 0 )
+				$first = $data[0]['sum'];
+				if ( $first != 0 )
 				{
-					foreach( $data as $winner )
-					{
-						if ( $prev == $winner['sum'] )
-						{
-							$array[] = $winner;
-						}
-					}
-	
-	
-					if ( count($array) > 1 )
-					{
-						$ids = array();
-						foreach( $array as $winner )
-						{
-							$ids[] = $winner['user_id'];
-						}
-	
-						$q = dibi::query('SELECT SUM(`t1.time`) AS `sum_time`, `t1.user_id`, t2.* FROM user_answer AS t1 INNER JOIN `user` AS t2 ON `t1.user_id` = `t2.id`  WHERE points != 0 AND `user_id` IN ( ' . implode(", ", $ids) . ') GROUP BY `user_id` ORDER BY `sum_time` ASC LIMIT 1' ); 
-						$winner = $q->fetch();
-					}
-					else
-					{
-						$winner = $data[0];
-					}
+					$winner = $data[0];
 				}
 			}
 	
