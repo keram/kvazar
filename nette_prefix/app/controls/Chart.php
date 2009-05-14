@@ -24,10 +24,33 @@
 		
 		public function initContent ()
 		{
-			$q = dibi::query('SELECT t1.user_id, t1.quiz_id, SUM(t1.max_points) AS `max_points`, t3.nick FROM (SELECT t2.user_id, t2.question_id, MAX(points) AS max_points, t2.quiz_id FROM user_answer t2 WHERE t2.quiz_id = %i GROUP BY user_id, question_id ORDER BY time ) AS t1 INNER JOIN `user` AS t3 ON t1.user_id = t3.id GROUP BY t1.user_id ORDER BY max_points DESC', $this->quiz['id']);
-			$r = $q->fetchAll();
-			
-			$this->data = $r;
+			$cache = NEnvironment::getCache();
+			$this->data = array();
+
+			if ( isset($cache['chart-' . $this->quiz['id']]) )
+			{
+				$this->data = $cache['chart-' . $this->quiz['id']];
+			}
+			else
+			{
+				$q = dibi::query('SELECT t1.user_id, t1.quiz_id, SUM(t1.max_points) AS `max_points`, t3.nick FROM (SELECT t2.user_id, t2.question_id, MAX(points) AS max_points, t2.quiz_id FROM user_answer t2 WHERE t2.quiz_id = %i GROUP BY user_id, question_id ORDER BY time ) AS t1 INNER JOIN `user` AS t3 ON t1.user_id = t3.id GROUP BY t1.user_id ORDER BY max_points DESC', $this->quiz['id']);
+				if ( $q->count() != 0 )
+				{
+					$r = $q->fetchAll();
+					$this->data = $r;
+					
+					if ( $this->quiz['run'] == 1 )
+					{
+						// ak kviz bezi expiruje chart po 50 sekundach ( ergo po kazdej otazke by mal )
+						$cache->save("chart-" . $this->quiz['id'], $r, array("expire" => time() + 50));
+					}
+					else
+					{
+						// cache expiruje za 14 dni -
+						$cache->save("chart-" . $this->quiz['id'], $r, array("expire" => time() + ( 60 * 60 * 24 * 14)));
+					}
+				}
+			}
 		}
 
 		public function getWinner($data)
