@@ -17,7 +17,7 @@
 		function __construct ( $quiz )
 		{
 			$this->quiz = $quiz;
-			$this->data = $this->initContent();
+			$this->initContent();
 		}
 		###	
 		
@@ -27,7 +27,7 @@
 			$q = dibi::query('SELECT t1.user_id, t1.quiz_id, SUM(t1.max_points) AS `max_points`, t3.nick FROM (SELECT t2.user_id, t2.question_id, MAX(points) AS max_points, t2.quiz_id FROM user_answer t2 WHERE t2.quiz_id = %i GROUP BY user_id, question_id ORDER BY time ) AS t1 INNER JOIN `user` AS t3 ON t1.user_id = t3.id GROUP BY t1.user_id ORDER BY max_points DESC', $this->quiz['id']);
 			$r = $q->fetchAll();
 			
-			return $r;
+			$this->data = $r;
 		}
 
 		public function getWinner($data)
@@ -36,7 +36,7 @@
 	
 			if ( count($data) != 0  ) 
 			{
-				$first = $data[0]['sum'];
+				$first = $data[0]['max_points'];
 				if ( $first != 0 )
 				{
 					$winner = $data[0];
@@ -51,6 +51,7 @@
 		{
 			$template = $this->createTemplate();
 			$user =  NEnvironment::getUser();
+
 			if ( $this->quiz['datetime_end'] && $this->quiz['datetime_end']  != "0000-00-00 00:00:00" )
 			{
 				$winner = $this->getWinner($this->data);

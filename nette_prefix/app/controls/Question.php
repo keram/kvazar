@@ -202,7 +202,20 @@
 			$elm = $form->getElementPrototype();
 			$elm->attrs['id'] = 'qform';
 			
-			$title = ( $this->config['title']['sk'] && $this->config['title']['en'] ) ? $this->config['title']['sk'] . ' / ' .  $this->config['title']['en'] : ( ( $this->config['title']['sk'] ) ? $this->config['title']['sk'] : $this->config['title']['en']);
+			$title = $this->config['order'] . '/' . $this->presenter->quiz['questions'] . ': ';
+			if ( $this->config['title']['sk'] )
+			{
+				$title .= $this->config['title']['sk'];
+				if ( $this->config['title']['en'] )
+				{
+					$title .= ' / ' . $this->config['title']['en'];
+				}
+			} 
+			else
+			{
+				$title .= $this->config['title']['en'];
+			}
+			
 			$group = $form->addGroup(stripslashes($title));
 			
 			$submitted = 0;

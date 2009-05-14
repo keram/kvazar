@@ -32,7 +32,14 @@ class QuizPresenter extends BasePresenter
 		else
 		{
 			$db  = dibi::getConnection();
-			$src = $db->dataSource('SELECT UNIX_TIMESTAMP() AS `system_time`, t1.*, COUNT(t2.quiz_id) AS `made_questions` FROM quiz AS t1 LEFT JOIN `quiz_has_question` AS t2 ON t1.id = t2.quiz_id WHERE t1.datetime_start != "0000-00-00 00:00:00" AND ( t1.datetime_end IS NULL OR t1.datetime_end = "0000-00-00 00:00:00") GROUP BY t1.id ORDER BY t1.id DESC LIMIT 1');
+			if ( isset($_GET['qid']) && trim($_GET['qid']) != "" )
+			{
+				$src = $db->dataSource('SELECT UNIX_TIMESTAMP() AS `system_time`, t1.*, COUNT(t2.quiz_id) AS `made_questions` FROM quiz AS t1 LEFT JOIN `quiz_has_question` AS t2 ON t1.id = t2.quiz_id WHERE t1.id = %i AND t1.datetime_start != "0000-00-00 00:00:00" GROUP BY t1.id ORDER BY t1.id DESC LIMIT 1', trim($_GET['qid']));
+			}
+			else
+			{
+				$src = $db->dataSource('SELECT UNIX_TIMESTAMP() AS `system_time`, t1.*, COUNT(t2.quiz_id) AS `made_questions` FROM quiz AS t1 LEFT JOIN `quiz_has_question` AS t2 ON t1.id = t2.quiz_id WHERE t1.datetime_start != "0000-00-00 00:00:00" GROUP BY t1.id ORDER BY t1.id DESC LIMIT 1');
+			}
 			
 			if ( $src->count() )
 			{
@@ -41,15 +48,10 @@ class QuizPresenter extends BasePresenter
 				$this->quiz['datetime_start'] 	= strtotime($data->datetime_start);
 				$this->quiz['datetime_end'] 	= strtotime($data->datetime_end);
 				$this->quiz['id'] = $data->id * 1;
-				$this->quiz['run'] = ( $this->quiz['datetime_start'] <= $this->system_time ) ? 1 : 0;
+				$this->quiz['run'] = ( !$this->quiz['datetime_end'] && $this->quiz['datetime_start'] <= $this->system_time ) ? 1 : 0;
 				$this->quiz['time'] = abs($this->quiz['datetime_start'] - $this->system_time);
 				$this->quiz['made_questions'] = $data->made_questions * 1;
 				$this->quiz['questions'] = $data->questions * 1;
-				if ( $this->quiz['made_questions'] > $this->quiz['questions'] )
-				{
-					$this->quiz['run'] = 0;
-				}
-
 			}
 			else
 			{
@@ -98,6 +100,16 @@ class QuizPresenter extends BasePresenter
 							if ( $this->question->config['order'] > $this->quiz['made_questions'] ) {
 								$this->quiz['made_questions']++;
 							}
+							
+							// pokial sa predchadzajuca otazka nezhoduje so sucasnou, tjst prebehlo kolo, vygenerujem charts tu aby sa pripadne skorigoval aj systemovy cas
+							if ( $session->config['id'] != $this->question->config['id'] )
+							{
+								$this->chart = $this->getComponent('chart');
+								if ( count($this->chart->data) != 0 ) {
+									$this->invalidateControl('chart');
+									$this->template->chart = $this->chart;
+								}
+							}
 	
 							$t = $this->question->config['datetime_start'] - ( $this->system_time + 1);
 	
@@ -130,7 +142,6 @@ class QuizPresenter extends BasePresenter
 						}
 						else
 						{
-							$chart_invalidate = 0;
 							$this->question->invalidateControl('qst');
 						}
 
@@ -138,18 +149,30 @@ class QuizPresenter extends BasePresenter
 					}
 				} catch (Exception $e) {
 					$this->flashMessage($e->getMessage());
-					dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
+				//	dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
 					$this->quiz['run'] = 0;
 					$this->quiz['time'] = 0;
 					$this->invalidateControl('quiz');
 					// $this->quiz['datetime_end'] = date("Y-m-d H:i:s", $this->system_time); // toto bude mensia odchylka ale snad nikomu nebude vadit predsa
 					$this->quiz['datetime_end'] = date("Y-m-d H:i:s", $this->system_time); // toto bude mensia odchylka ale snad nikomu nebude vadit predsa
+					$this->chart = $this->getComponent('chart');
+					if ( count($this->chart->data) != 0 ) {
+						$this->invalidateControl('chart');
+						$this->template->chart = $this->chart;
+					}
+					
 					$this->newQuiz();
 				}
 			}
 			else // kviz este nezacal ( alebo uz skoncil )preto invalidnem cely quiz snippet, 
 			{
 				$this->invalidateControl('quiz');
+				$this->chart = $this->getComponent('chart');
+				if ( count($this->chart->data) != 0 ) {
+					$this->invalidateControl('chart');
+					$this->template->chart = $this->chart;
+				}
+
 				if ( $this->quiz['datetime_end'] != "0000-00-00 00:00:00" )
 				{
 					$this->newQuiz();
@@ -157,18 +180,11 @@ class QuizPresenter extends BasePresenter
 			}
 			
 			// na zaver naplnim template/ajax storage datami
-			$this->chart = $this->getComponent('chart');
-
-			if ( $chart_invalidate && count($this->chart->data) != 0 ) {
-				$this->invalidateControl('chart');
-				$this->template->chart = $this->chart;
-			}
 
 			if ( $this->isAjax() )
 			{
 				$this->ajax_storage->quiz = $this->quiz;
 			}
-			
 			$this->template->quiz = $this->quiz;
 		}
 		else 
