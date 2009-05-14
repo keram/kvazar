@@ -98,7 +98,7 @@
 					if ( $this->presenter->quiz['made_questions'] == 0 || $this->presenter->quiz['made_questions'] >= $session->config['order'] )
 					{
 						sleep(2);
-						getConfig($this->presenter->quiz['made_questions']);
+						$this->getConfig($this->presenter->quiz['made_questions']);
 					}
 				}
 			}

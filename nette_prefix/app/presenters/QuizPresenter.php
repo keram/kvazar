@@ -85,7 +85,6 @@ class QuizPresenter extends BasePresenter
 					
 					if ( $this->question->config['remaining_time'] <= 0 )
 					{
-						NDebug::firelog($this->question->config['remaining_time']);
 						throw new Exception("Quiz end");
 					}
 
@@ -119,7 +118,6 @@ class QuizPresenter extends BasePresenter
 							if ( $this->isAjax() )
 							{
 								$this->ajax_storage->question = $this->question->public_config;
-								// $chart_invalidate = 0;
 							}
 	
 							if ( !isset($session->visited_hints) || $session->config['id'] != $this->question->public_config['id'])
@@ -132,6 +130,7 @@ class QuizPresenter extends BasePresenter
 						}
 						else
 						{
+							$chart_invalidate = 0;
 							$this->question->invalidateControl('qst');
 						}
 
@@ -139,7 +138,7 @@ class QuizPresenter extends BasePresenter
 					}
 				} catch (Exception $e) {
 					$this->flashMessage($e->getMessage());
-//					dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
+					dibi::query('UPDATE `quiz` SET `datetime_end` = NOW() WHERE `id` = %i', $this->quiz['id']);
 					$this->quiz['run'] = 0;
 					$this->quiz['time'] = 0;
 					$this->invalidateControl('quiz');
@@ -159,6 +158,7 @@ class QuizPresenter extends BasePresenter
 			
 			// na zaver naplnim template/ajax storage datami
 			$this->chart = $this->getComponent('chart');
+
 			if ( $chart_invalidate && count($this->chart->data) != 0 ) {
 				$this->invalidateControl('chart');
 				$this->template->chart = $this->chart;
@@ -212,7 +212,6 @@ class QuizPresenter extends BasePresenter
 				$form->setDefaults(array( 'questions' => 20 ));
 				$form->onSubmit[] = array($this, 'newQuizFormSubmitted');
 				$this->template->new_form = $form;
-				
 			}
 			else
 			{
@@ -224,14 +223,8 @@ class QuizPresenter extends BasePresenter
 				$form->setDefaults(array( 'questions' => 20 ));
 				$form->onSubmit[] = array($this, 'newQuizFormSubmitted');
 				$this->template->start_form = $form;
-
 			}
 		}
-	}
-	
-	public function actionEnd ($id)
-	{
-		
 	}
 	
 	public function actionAnswer ($id)
@@ -401,13 +394,6 @@ class QuizPresenter extends BasePresenter
 			$this->flashMessage('Quiz created.');
 			
 			$this->redirect('Quiz:');
-			// TODO generovat otazky do kvizu dopredu
-			// $db  = dibi::getConnection();
-			// $src = $db->dataSource(sprintf('SELECT t1.id, concat(t1.title_sk, " / ", t1.title_en) AS `question`, COUNT(t2.id) AS `answers` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE t3.open = 0 ) GROUP BY t1.id ORDER BY RAND() LIMIT %d', $questions));
-			// $src = $db->dataSource('SELECT t1.*, t2.correct, t2.value, t2.id AS `answer_id` FROM `question` AS t1 LEFT JOIN `answer` AS t2 ON t1.id = t2.question_id WHERE t1.state = "approved" AND t1.id NOT IN ( SELECT t3.question_id FROM `quiz_has_question` AS t3 WHERE t3.open = 0 ) GROUP BY t1.id ORDER BY RAND() LIMIT 1');
-			// Debug::dump($src->fetchAll());
-		
-
 		} catch (NFormValidationException $e) {
 			$form->addError($e->getMessage());
 		} catch (NullQuestionsException $e) {
