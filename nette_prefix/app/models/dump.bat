@@ -1,0 +1,1 @@
+mysqldump -u root -p kvazar > ./%date:~3,2%-%date:~6,2%-%date:~9,4%_kvazar_dump.sql

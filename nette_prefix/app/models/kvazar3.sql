@@ -19,6 +19,7 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`user` (
   `password` VARCHAR(64) NOT NULL ,
   `datetime_register` DATETIME NOT NULL ,
   `datetime_lastlogin` DATETIME NULL ,
+  `role` ENUM('admin', 'moderator', 'corrector', 'editor', 'user') NOT NULL DEFAULT 'user' ,
   PRIMARY KEY (`id`, `email`) ,
   UNIQUE INDEX `index2` (`email` ASC) ,
   UNIQUE INDEX `nick` (`nick` ASC) )
@@ -43,6 +44,7 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`quiz` (
   `admin` INT UNSIGNED NOT NULL ,
   `questions` SMALLINT UNSIGNED NOT NULL DEFAULT 20 ,
   `scope` SET('general', 'art', 'sport', 'science', 'history', 'geography', 'society', 'logic', 'health') NOT NULL DEFAULT 'general' ,
+  `proceeding` ENUM('moderated', 'automated', 'combined') NOT NULL DEFAULT 'combined' ,
   PRIMARY KEY (`id`, `key`, `admin`) ,
   INDEX `fk_quiz_user` (`admin` ASC) ,
   CONSTRAINT `fk_quiz_user`
@@ -72,6 +74,7 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`question` (
   `response_time` SMALLINT NOT NULL DEFAULT 60 COMMENT 'in second' ,
   `type` ENUM('simple', 'multi') NOT NULL DEFAULT 'simple' ,
   `scope` SET('general', 'art', 'sport', 'science', 'history', 'geography', 'society', 'logic', 'health') NOT NULL DEFAULT 'general' ,
+  `additional_info` TEXT NULL ,
   PRIMARY KEY (`id`) )
 ENGINE = InnoDB;
 
@@ -147,9 +150,11 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`user_answer` (
   `time` DATETIME NOT NULL ,
   `comment` TEXT NULL ,
   `points` TINYINT UNSIGNED NULL DEFAULT 0 ,
-  PRIMARY KEY (`user_id`, `quiz_id`, `question_id`, `value`) ,
+  `answer_id` INT UNSIGNED NOT NULL ,
+  PRIMARY KEY (`user_id`, `quiz_id`, `question_id`, `value`, `answer_id`) ,
   INDEX `fk_user_has_quiz_has_question_user` (`user_id` ASC) ,
   INDEX `fk_user_has_quiz_has_question_quiz_has_question` (`quiz_id` ASC, `question_id` ASC) ,
+  INDEX `fk_user_answer_answer` (`answer_id` ASC) ,
   CONSTRAINT `fk_user_has_quiz_has_question_user`
     FOREIGN KEY (`user_id` )
     REFERENCES `kvazar`.`user` (`id` )
@@ -159,6 +164,11 @@ CREATE  TABLE IF NOT EXISTS `kvazar`.`user_answer` (
     FOREIGN KEY (`quiz_id` , `question_id` )
     REFERENCES `kvazar`.`quiz_has_question` (`quiz_id` , `question_id` )
     ON DELETE CASCADE
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_user_answer_answer`
+    FOREIGN KEY (`answer_id` )
+    REFERENCES `kvazar`.`answer` (`id` )
+    ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8
